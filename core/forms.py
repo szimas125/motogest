@@ -76,36 +76,19 @@ class TeamMembershipForm(forms.ModelForm):
 class PlanoAdminForm(forms.ModelForm):
     class Meta:
         model = Plano
-        fields = ['nome', 'slug', 'preco_mensal', 'limite_usuarios', 'limite_ordens_mes', 'limite_produtos', 'periodo_teste_dias', 'destaque', 'ativo', 'exibir_no_site', 'descricao', 'recursos', 'ordem']
+        fields = ['nome', 'slug', 'descricao', 'preco_mensal', 'periodo_teste_dias', 'limite_usuarios', 'limite_produtos', 'limite_ordens_mes', 'ativo', 'exibir_no_site', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'slug': forms.TextInput(attrs={'class': 'form-control'}),
-            'preco_mensal': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'limite_usuarios': forms.NumberInput(attrs={'class': 'form-control'}),
-            'limite_ordens_mes': forms.NumberInput(attrs={'class': 'form-control'}),
-            'limite_produtos': forms.NumberInput(attrs={'class': 'form-control'}),
-            'periodo_teste_dias': forms.NumberInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'recursos': forms.Textarea(attrs={'class': 'form-control', 'rows': 6}),
-            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
-            'destaque': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'preco_mensal': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'periodo_teste_dias': forms.NumberInput(attrs={'class': 'form-control'}),
+            'limite_usuarios': forms.NumberInput(attrs={'class': 'form-control'}),
+            'limite_produtos': forms.NumberInput(attrs={'class': 'form-control'}),
+            'limite_ordens_mes': forms.NumberInput(attrs={'class': 'form-control'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'exibir_no_site': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-
-
-class AssinaturaAdminForm(forms.ModelForm):
-    class Meta:
-        model = Assinatura
-        fields = ['plano', 'status', 'inicio', 'vencimento', 'proximo_plano', 'renovar_automaticamente', 'observacoes']
-        widgets = {
-            'plano': forms.Select(attrs={'class': 'form-select'}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
-            'inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'vencimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'proximo_plano': forms.Select(attrs={'class': 'form-select'}),
-            'renovar_automaticamente': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
@@ -114,6 +97,8 @@ class BillingCardTokenForm(forms.Form):
     payment_method_id = forms.CharField(required=False, widget=forms.HiddenInput())
     issuer_id = forms.CharField(required=False, widget=forms.HiddenInput())
     installments = forms.IntegerField(required=False, initial=1, widget=forms.HiddenInput())
+    card_last_four = forms.CharField(required=False, max_length=4, widget=forms.HiddenInput())
+    card_brand = forms.CharField(required=False, max_length=40, widget=forms.HiddenInput())
 
 
 class EmpresaAdminCreateForm(forms.ModelForm):

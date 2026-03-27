@@ -300,6 +300,22 @@ def registrar_evento_assinatura(assinatura, tipo, descricao='', payload=None, or
     )
 
 
+def _formatar_bandeira(value):
+    mapping = {
+        'master': 'Mastercard',
+        'visa': 'Visa',
+        'amex': 'American Express',
+        'elo': 'Elo',
+        'hipercard': 'Hipercard',
+        'diners': 'Diners',
+        'discover': 'Discover',
+        'jcb': 'JCB',
+        'aura': 'Aura',
+    }
+    raw = (value or '').strip().lower()
+    return mapping.get(raw, value or '')
+
+
 @login_required
 @require_company_profile('ADMIN')
 def billing_checkout(request):
@@ -317,12 +333,18 @@ def billing_checkout(request):
 
         if form.is_valid():
             try:
+                card_last_four = (form.cleaned_data.get('card_last_four') or '').strip()[-4:]
+                card_brand = _formatar_bandeira(
+                    form.cleaned_data.get('card_brand') or form.cleaned_data.get('payment_method_id') or ''
+                )
+
                 service = MercadoPagoService()
                 if assinatura.mercado_pago_preapproval_id:
-                    response = service.atualizar_cartao_assinatura(
+                    service.atualizar_cartao_assinatura(
                         assinatura,
                         form.cleaned_data['card_token'],
                     )
+                    response = service.buscar_assinatura(assinatura.mercado_pago_preapproval_id)
                 else:
                     response = service.criar_assinatura_com_teste(
                         request=request,
@@ -351,6 +373,21 @@ def billing_checkout(request):
                     return redirect('billing_checkout')
 
                 aplicar_resposta_preapproval(assinatura, response)
+
+                campos_para_salvar = []
+                if card_last_four:
+                    assinatura.cartao_ultimos_digitos = card_last_four
+                    campos_para_salvar.append('cartao_ultimos_digitos')
+
+                if not card_brand:
+                    card_brand = _formatar_bandeira(response.get('payment_method_id', ''))
+                if card_brand:
+                    assinatura.cartao_bandeira = card_brand
+                    campos_para_salvar.append('cartao_bandeira')
+
+                if campos_para_salvar:
+                    assinatura.save(update_fields=campos_para_salvar + ['atualizado_em'])
+
                 registrar_evento_assinatura(
                     assinatura,
                     'cartao_cadastrado',
