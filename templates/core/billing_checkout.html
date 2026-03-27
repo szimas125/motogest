@@ -83,7 +83,7 @@
                             <tr><td>Forma de cobrança</td><td>Recorrência mensal</td></tr>
                         </table>
                         {% if assinatura.cartao_cadastrado_em %}
-                            <div class="current-card">Cartão atual: {{ assinatura.cartao_bandeira|default:'Cartão' }} •••• {{ assinatura.cartao_ultimos_digitos }}</div>
+                            <div class="current-card">Cartão atual: {{ assinatura.cartao_bandeira|default:'Cartão' }}{% if assinatura.cartao_ultimos_digitos %} •••• {{ assinatura.cartao_ultimos_digitos }}{% endif %}</div>
                         {% endif %}
                     </div>
 
@@ -96,39 +96,41 @@
                             {{ form.payment_method_id }}
                             {{ form.issuer_id }}
                             {{ form.installments }}
+                            {{ form.card_last_four }}
+                            {{ form.card_brand }}
 
                             <div class="field">
                                 <label for="cardNumber">Número do cartão</label>
-                                <input id="cardNumber" name="card_number" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" required>
+                                <input id="cardNumber" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" required>
                             </div>
                             <div class="row">
                                 <div class="field">
                                     <label for="expirationDate">Validade</label>
-                                    <input id="expirationDate" name="expiration_date" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" required>
+                                    <input id="expirationDate" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" required>
                                 </div>
                                 <div class="field">
                                     <label for="securityCode">CVV</label>
-                                    <input id="securityCode" name="security_code" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="000" required>
+                                    <input id="securityCode" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="000" required>
                                 </div>
                             </div>
                             <div class="field">
                                 <label for="cardholderName">Nome impresso no cartão</label>
-                                <input id="cardholderName" name="cardholder_name" type="text" autocomplete="cc-name" placeholder="Como aparece no cartão" required>
+                                <input id="cardholderName" type="text" autocomplete="cc-name" placeholder="Como aparece no cartão" required>
                             </div>
                             <div class="field">
                                 <label for="docType">Tipo de documento</label>
-                                <select id="docType" name="doc_type" required>
+                                <select id="docType" required>
                                     <option value="CPF" selected>CPF</option>
                                     <option value="CNPJ">CNPJ</option>
                                 </select>
                             </div>
                             <div class="field">
                                 <label for="docNumber">CPF ou CNPJ do titular</label>
-                                <input id="docNumber" name="cpf" type="text" inputmode="numeric" placeholder="123.456.789-09" required>
+                                <input id="docNumber" type="text" inputmode="numeric" placeholder="123.456.789-09" required>
                             </div>
                             <div class="field">
                                 <label for="cardholderEmail">E-mail do titular</label>
-                                <input id="cardholderEmail" name="cardholder_email" type="email" value="{{ request.user.email|default:empresa.email }}" autocomplete="email" required>
+                                <input id="cardholderEmail" type="email" value="{{ request.user.email|default:empresa.email }}" required>
                             </div>
                             <div class="hint">Esta assinatura é recorrente. Não há parcelamento: a cobrança será mensal e automática no cartão cadastrado.</div>
                             <div id="mp-status" class="status-line"></div>
@@ -150,11 +152,13 @@
         const hiddenPaymentMethod = document.getElementById("id_payment_method_id");
         const hiddenIssuer = document.getElementById("id_issuer_id");
         const hiddenInstallments = document.getElementById("id_installments");
+        const hiddenCardLastFour = document.getElementById("id_card_last_four");
+        const hiddenCardBrand = document.getElementById("id_card_brand");
         const mp = new MercadoPago(publicKey, { locale: "pt-BR" });
 
         function setStatus(message) { statusLine.textContent = message || ""; }
         function onlyDigits(value) { return (value || "").replace(/\D/g, ""); }
-        function maskCard(value) { return onlyDigits(value).slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ").trim(); }
+        function maskCard(value) { return onlyDigits(value).slice(0, 19).replace(/(\d{4})(?=\d)/g, "$1 ").trim(); }
         function maskExpiry(value) { const digits = onlyDigits(value).slice(0, 4); if (digits.length <= 2) return digits; return `${digits.slice(0, 2)}/${digits.slice(2)}`; }
         function maskCvv(value) { return onlyDigits(value).slice(0, 4); }
         function maskDoc(value, type) {
@@ -180,9 +184,12 @@
             hiddenInstallments.value = "1";
             hiddenIssuer.value = "";
 
+            const rawCardNumber = onlyDigits(document.getElementById("cardNumber").value);
+            hiddenCardLastFour.value = rawCardNumber.slice(-4);
+
             const [month = "", year = ""] = document.getElementById("expirationDate").value.split("/");
             const cardData = {
-                cardNumber: onlyDigits(document.getElementById("cardNumber").value),
+                cardNumber: rawCardNumber,
                 cardholderName: document.getElementById("cardholderName").value,
                 cardExpirationMonth: month,
                 cardExpirationYear: `20${year}`,
@@ -196,8 +203,10 @@
                 const paymentMethod = await mp.getPaymentMethods({ bin: cardData.cardNumber.slice(0, 6) });
                 const methods = paymentMethod?.results || [];
                 hiddenPaymentMethod.value = methods.length ? methods[0].id : "";
+                hiddenCardBrand.value = methods.length ? (methods[0].name || methods[0].id || "") : "";
             } catch (error) {
                 hiddenPaymentMethod.value = "";
+                hiddenCardBrand.value = "";
             }
 
             try {
