@@ -2,8 +2,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+
 from core.permissions import require_company_profile
 from core.services import empresa_bloqueada, obter_empresa_atual, pode_criar_produto
+
 from .forms import CategoriaForm, MovimentacaoEstoqueForm, ProdutoForm
 from .models import Categoria, MovimentacaoEstoque, Produto
 
@@ -17,18 +19,22 @@ def lista_produtos(request):
     produtos = Produto.objects.select_related('categoria').filter(empresa=empresa)
     if busca:
         produtos = produtos.filter(
-            Q(nome__icontains=busca) |
-            Q(sku__icontains=busca) |
-            Q(marca__icontains=busca) |
-            Q(categoria__nome__icontains=busca)
+            Q(nome__icontains=busca)
+            | Q(sku__icontains=busca)
+            | Q(marca__icontains=busca)
+            | Q(categoria__nome__icontains=busca)
         )
     produtos = produtos.order_by('nome')
-    return render(request, 'inventory/product_list.html', {
-        'products': produtos,
-        'empresa': empresa,
-        'bloqueada': empresa_bloqueada(empresa),
-        'busca': busca,
-    })
+    return render(
+        request,
+        'inventory/product_list.html',
+        {
+            'products': produtos,
+            'empresa': empresa,
+            'bloqueada': empresa_bloqueada(empresa),
+            'busca': busca,
+        },
+    )
 
 
 @login_required
@@ -75,6 +81,9 @@ def excluir_categoria(request, pk):
     if not empresa:
         return redirect('selecionar_empresa')
     categoria = get_object_or_404(Categoria, pk=pk, empresa=empresa)
+    if empresa_bloqueada(empresa):
+        messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
+        return redirect('plans')
     if request.method == 'POST':
         if categoria.produtos.exists():
             messages.error(request, 'Não é possível excluir uma categoria com produtos vinculados.')
@@ -82,11 +91,15 @@ def excluir_categoria(request, pk):
             categoria.delete()
             messages.success(request, 'Categoria excluída com sucesso.')
         return redirect('product_list')
-    return render(request, 'shared/confirm_delete.html', {
-        'title': 'Excluir categoria',
-        'message': f'Deseja excluir a categoria "{categoria.nome}"?',
-        'cancel_url': 'product_list',
-    })
+    return render(
+        request,
+        'shared/confirm_delete.html',
+        {
+            'title': 'Excluir categoria',
+            'message': f'Deseja excluir a categoria "{categoria.nome}"?',
+            'cancel_url': 'product_list',
+        },
+    )
 
 
 @login_required
@@ -127,7 +140,11 @@ def editar_produto(request, pk):
         form.save()
         messages.success(request, 'Produto atualizado com sucesso.')
         return redirect('product_list')
-    return render(request, 'shared/form.html', {'form': form, 'title': f'Editar produto - {produto.nome}', 'cancel_url': 'product_list'})
+    return render(
+        request,
+        'shared/form.html',
+        {'form': form, 'title': f'Editar produto - {produto.nome}', 'cancel_url': 'product_list'},
+    )
 
 
 @login_required
@@ -137,18 +154,28 @@ def excluir_produto(request, pk):
     if not empresa:
         return redirect('selecionar_empresa')
     produto = get_object_or_404(Produto, pk=pk, empresa=empresa)
+    if empresa_bloqueada(empresa):
+        messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
+        return redirect('plans')
     if request.method == 'POST':
         if produto.movimentacoes.exists() or produto.itemordemservico_set.exists():
-            messages.error(request, 'Não é possível excluir este produto porque ele já possui movimentações ou uso em ordem de serviço.')
+            messages.error(
+                request,
+                'Não é possível excluir este produto porque ele já possui movimentações ou uso em ordem de serviço.',
+            )
         else:
             produto.delete()
             messages.success(request, 'Produto excluído com sucesso.')
         return redirect('product_list')
-    return render(request, 'shared/confirm_delete.html', {
-        'title': 'Excluir produto',
-        'message': f'Deseja excluir o produto "{produto.nome}"?',
-        'cancel_url': 'product_list',
-    })
+    return render(
+        request,
+        'shared/confirm_delete.html',
+        {
+            'title': 'Excluir produto',
+            'message': f'Deseja excluir o produto "{produto.nome}"?',
+            'cancel_url': 'product_list',
+        },
+    )
 
 
 @login_required
@@ -161,12 +188,16 @@ def lista_movimentacoes(request):
     if busca:
         movements = movements.filter(Q(produto__nome__icontains=busca) | Q(motivo__icontains=busca))
     movements = movements.order_by('-criado_em')
-    return render(request, 'inventory/movement_list.html', {
-        'movements': movements,
-        'empresa': empresa,
-        'bloqueada': empresa_bloqueada(empresa),
-        'busca': busca,
-    })
+    return render(
+        request,
+        'inventory/movement_list.html',
+        {
+            'movements': movements,
+            'empresa': empresa,
+            'bloqueada': empresa_bloqueada(empresa),
+            'busca': busca,
+        },
+    )
 
 
 @login_required
@@ -219,12 +250,19 @@ def excluir_movimentacao(request, pk):
     if not empresa:
         return redirect('selecionar_empresa')
     movimentacao = get_object_or_404(MovimentacaoEstoque, pk=pk, empresa=empresa)
+    if empresa_bloqueada(empresa):
+        messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
+        return redirect('plans')
     if request.method == 'POST':
         movimentacao.delete()
         messages.success(request, 'Movimentação excluída com sucesso.')
         return redirect('movement_list')
-    return render(request, 'shared/confirm_delete.html', {
-        'title': 'Excluir movimentação',
-        'message': f'Deseja excluir a movimentação do produto "{movimentacao.produto.nome}"?',
-        'cancel_url': 'movement_list',
-    })
+    return render(
+        request,
+        'shared/confirm_delete.html',
+        {
+            'title': 'Excluir movimentação',
+            'message': f'Deseja excluir a movimentação do produto "{movimentacao.produto.nome}"?',
+            'cancel_url': 'movement_list',
+        },
+    )
