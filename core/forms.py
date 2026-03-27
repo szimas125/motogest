@@ -117,3 +117,18 @@ class EmpresaAdminCreateForm(forms.ModelForm):
             'estado': forms.TextInput(attrs={'class': 'form-control text-uppercase', 'maxlength': '2'}),
             'ativa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+class AssinaturaAdminForm(forms.ModelForm):
+    class Meta:
+        model = Assinatura
+        fields = [
+            'empresa',
+            'plano',
+            'status',
+            'vencimento',
+            'mercado_pago_preapproval_id',
+            'mercado_pago_status',
+            'cartao_ultimos_digitos',
+            'cartao_bandeira',
+            'cartao_cadastrado_em',
+        ]
