@@ -278,10 +278,14 @@ def atualizar_vinculo(request, pk):
     vinculo = get_object_or_404(VinculoUsuarioEmpresa, pk=pk, empresa=empresa)
     form = TeamMembershipForm(request.POST or None, instance=vinculo)
 
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Vínculo atualizado com sucesso.')
-        return redirect('team')
+    if request.method == 'POST':
+        if empresa_bloqueada(empresa):
+            messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
+            return redirect('plans')
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Vínculo atualizado com sucesso.')
+            return redirect('team')
 
     return render(request, 'team/edit_membership.html', {'form': form, 'vinculo': vinculo, 'empresa': empresa})
 
