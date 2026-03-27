@@ -75,22 +75,37 @@ class MercadoPagoService:
         proxima_cobranca = agora + timezone.timedelta(days=plano.periodo_teste_dias)
 
         payer_email = (
-            getattr(empresa, 'email', '') or
-            getattr(request.user, 'email', '') or
-            'buyer@testuser.com'
+            request.POST.get('cardholder_email')
+            or request.POST.get('payer_email')
+            or request.POST.get('email')
+            or getattr(empresa, 'email', '')
+            or getattr(request.user, 'email', '')
+            or 'buyer@testuser.com'
         ).strip()
 
-        cpf = (
+        document_type = (
+            request.POST.get('doc_type')
+            or request.POST.get('document_type')
+            or request.POST.get('identificationType')
+            or request.POST.get('identification_type')
+            or 'CPF'
+        ).strip().upper()
+
+        document_number = (
             request.POST.get('cpf')
+            or request.POST.get('cpf_cnpj')
             or request.POST.get('doc_number')
             or request.POST.get('docNumber')
             or request.POST.get('document')
+            or request.POST.get('documento')
+            or request.POST.get('identificationNumber')
+            or request.POST.get('identification_number')
             or ''
         )
-        cpf = ''.join(ch for ch in cpf if ch.isdigit())
+        document_number = ''.join(ch for ch in document_number if ch.isdigit())
 
-        if not cpf:
-            raise MercadoPagoConfigError('CPF do titular não enviado para o Mercado Pago.')
+        if not document_number:
+            raise MercadoPagoConfigError('Documento do titular não enviado para o Mercado Pago.')
 
         start_date = proxima_cobranca.strftime('%Y-%m-%dT%H:%M:%S.000-03:00')
 
@@ -100,8 +115,8 @@ class MercadoPagoService:
             'payer': {
                 'email': payer_email,
                 'identification': {
-                    'type': 'CPF',
-                    'number': cpf,
+                    'type': document_type,
+                    'number': document_number,
                 }
             },
             'card_token_id': card_token_id,
