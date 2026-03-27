@@ -1,0 +1,28 @@
+{% extends 'saas_admin/base.html' %}
+{% block title %}Empresas | EzStock Admin{% endblock %}
+{% block page_title %}Empresas do sistema{% endblock %}
+{% block content %}
+<div class="soft-card p-4">
+  <div class="d-flex justify-content-end mb-3"><a href="{% url 'saas_admin_empresa_create' %}" class="btn btn-primary">Nova empresa</a></div>
+<form class="row g-3 mb-4">
+    <div class="col-md-8"><input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Busque por nome, CNPJ ou e-mail"></div>
+    <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary">Buscar</button><a href="{% url 'saas_admin_empresas' %}" class="btn btn-outline-secondary">Limpar</a></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Empresa</th><th>Contato</th><th>Plano</th><th>Usuários</th><th>Produtos</th><th>OS</th><th></th></tr></thead>
+      <tbody>
+        {% for empresa in empresas %}
+        <tr>
+          <td><strong>{{ empresa.nome_fantasia|default:empresa.nome }}</strong><div class="small text-muted">{{ empresa.cidade }}{% if empresa.estado %}/{{ empresa.estado }}{% endif %}</div></td>
+          <td><div>{{ empresa.telefone|default:'Sem telefone' }}</div><div class="small text-muted">{{ empresa.email|default:'Sem e-mail' }}</div></td>
+          <td>{% if empresa.assinatura %}{{ empresa.assinatura.plano.nome }}<div class="small text-muted">{{ empresa.assinatura.get_status_display }}</div>{% else %}<span class="text-muted">Sem assinatura</span>{% endif %}</td>
+          <td>{{ empresa.total_usuarios }}</td><td>{{ empresa.total_produtos }}</td><td>{{ empresa.total_os }}</td>
+          <td><a href="{% url 'saas_admin_empresa_edit' empresa.id %}" class="btn btn-sm btn-outline-dark">Editar aqui</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="text-muted">Nenhuma empresa encontrada.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

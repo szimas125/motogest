@@ -1,0 +1,87 @@
+{% extends "base.html" %}{% load br_filters %}
+{% block title %}Ordem de serviço {{ order.numero }} | EzStock{% endblock %}
+{% block page_title %}Ordem de serviço {{ order.numero }}{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+          <h5 class="mb-0">Resumo da OS</h5>
+          <div class="btn-group btn-group-sm">
+            <a href="{% url 'service_order_edit' order.id %}" class="btn btn-outline-primary">Editar OS</a>
+            <a href="{% url 'service_order_print' order.id %}" class="btn btn-outline-dark" target="_blank">Imprimir OS</a>
+            <a href="{% url 'invoice_create' order.id %}" class="btn btn-primary">Gerar nota interna</a>
+            <a href="{% url 'generate_os_account' order.id %}" class="btn btn-outline-success">Gerar conta</a>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6"><strong>Cliente:</strong><br>{{ order.cliente.nome }}</div>
+          <div class="col-md-6"><strong>Ativo:</strong><br>{{ order.ativo.marca }} {{ order.ativo.modelo }}</div>
+          <div class="col-md-6"><strong>Status:</strong><br>{{ order.get_status_display }}</div>
+          <div class="col-md-6"><strong>Previsão:</strong><br>{{ order.previsao_entrega|date:'d/m/Y'|default:'-' }}</div>
+          <div class="col-12"><strong>Queixa:</strong><br>{{ order.queixa }}</div>
+          <div class="col-12"><strong>Diagnóstico:</strong><br>{{ order.diagnostico|default:'-' }}</div>
+          <div class="col-12"><strong>Observações:</strong><br>{{ order.observacoes|default:'-' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Itens da ordem</h5>
+          {% if order.nota_interna %}<a href="{% url 'invoice_print' order.nota_interna.id %}" class="btn btn-outline-primary btn-sm" target="_blank">Imprimir nota</a>{% endif %}
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd.</th><th>Valor unitário</th><th>Total</th><th class="text-end">Ações</th></tr></thead>
+            <tbody>
+              {% for item in order.itens.all %}
+              <tr>
+                <td>{{ item.get_tipo_item_display }}</td>
+                <td>{{ item.descricao }}</td>
+                <td>{{ item.quantidade }}</td>
+                <td>{{ item.valor_unitario|brl }}</td>
+                <td>{{ item.valor_total|brl }}</td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <a href="{% url 'service_order_edit_item' order.id item.id %}" class="btn btn-outline-primary">Editar</a>
+                    <a href="{% url 'service_order_delete_item' order.id item.id %}" class="btn btn-outline-danger">Excluir</a>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}<tr><td colspan="6" class="text-muted">Nenhum item lançado.</td></tr>{% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><th colspan="4" class="text-end">Mão de obra</th><th>{{ order.valor_mao_de_obra|brl }}</th><th></th></tr>
+              <tr><th colspan="4" class="text-end">Desconto</th><th>{{ order.valor_desconto|brl }}</th><th></th></tr>
+              <tr><th colspan="4" class="text-end">Total</th><th>{{ order.valor_total|brl }}</th><th></th></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="mb-3">Adicionar item</h5>
+        <form method="post" action="{% url 'service_order_add_item' order.id %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            {% for field in item_form %}
+              <div class="col-12">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors|join:', ' }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          <button class="btn btn-primary mt-3 w-100">Adicionar item</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

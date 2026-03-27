@@ -1,0 +1,34 @@
+{% extends 'saas_admin/base.html' %}
+{% load br_filters %}
+{% block title %}Assinaturas | EzStock Admin{% endblock %}
+{% block page_title %}Assinaturas{% endblock %}
+{% block content %}
+<div class="soft-card p-4">
+  <form class="row g-3 mb-4">
+    <div class="col-md-6">
+      <select class="form-select" name="status">
+        <option value="">Todos os status</option>
+        {% for key, label in status_choices %}<option value="{{ key }}" {% if status_atual == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-6 d-flex gap-2"><button class="btn btn-primary">Filtrar</button><a href="{% url 'saas_admin_assinaturas' %}" class="btn btn-outline-secondary">Limpar</a></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Empresa</th><th>Plano</th><th>Status</th><th>Vencimento</th><th>Próximo plano</th><th></th></tr></thead>
+      <tbody>
+        {% for assinatura in assinaturas %}
+        <tr>
+          <td>{{ assinatura.empresa.nome_fantasia|default:assinatura.empresa.nome }}</td>
+          <td>{{ assinatura.plano.nome }}<div class="small text-muted">{{ assinatura.plano.preco_mensal|brl }}</div></td>
+          <td><span class="badge text-bg-light">{{ assinatura.get_status_display }}</span></td>
+          <td>{{ assinatura.vencimento|date:'d/m/Y'|default:'-' }}</td>
+          <td>{{ assinatura.proximo_plano.nome|default:'-' }}</td>
+          <td><a href="{% url 'saas_admin_assinatura_edit' assinatura.id %}" class="btn btn-sm btn-outline-dark">Editar aqui</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-muted">Nenhuma assinatura encontrada.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

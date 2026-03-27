@@ -1,0 +1,217 @@
+{% load br_filters %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cadastro do cartão | EzStock</title>
+    <script src="{{ mercadopago_js_url|default:'https://sdk.mercadopago.com/js/v2' }}"></script>
+    <style>
+        :root{
+            --bg1:#0f1f56;
+            --bg2:#2f6fff;
+            --card:#ffffff;
+            --text:#142033;
+            --muted:#5f6b7a;
+            --line:#d9e1ec;
+            --primary:#2563eb;
+            --primary-dark:#1d4ed8;
+            --success-bg:#dcfce7;
+            --success-text:#166534;
+            --warn-bg:#fef3c7;
+            --warn-text:#92400e;
+        }
+        *{box-sizing:border-box}
+        body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:linear-gradient(135deg,var(--bg2),var(--bg1));min-height:100vh}
+        .page{max-width:860px;margin:0 auto;padding:32px 18px}
+        .card{background:var(--card);border-radius:28px;padding:32px;box-shadow:0 20px 60px rgba(10,22,70,.18)}
+        .badge{display:inline-block;background:#e8f0ff;color:var(--primary);padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;margin-bottom:16px}
+        h1{margin:0 0 8px;font-size:38px;line-height:1.1}
+        .lead{color:var(--muted);font-size:16px;margin:0 0 22px}
+        .actions{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+        .btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:14px;padding:12px 18px;text-decoration:none;font-weight:600;cursor:pointer}
+        .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .btn-primary:hover{background:var(--primary-dark)}
+        .alert{border-radius:18px;padding:16px 18px;margin-bottom:20px;line-height:1.5}
+        .alert-success{background:var(--success-bg);color:var(--success-text)}
+        .alert-warning{background:var(--warn-bg);color:var(--warn-text)}
+        .grid{display:grid;grid-template-columns:1fr 1.1fr;gap:28px;align-items:start}
+        .summary h2,.form-wrap h2{font-size:16px;margin:0 0 16px;letter-spacing:.02em}
+        .summary-table{width:100%;border-collapse:collapse}
+        .summary-table td{padding:11px 0;border-bottom:1px solid var(--line);font-size:16px}
+        .summary-table td:last-child{text-align:right;font-weight:700}
+        .current-card{margin-top:16px;padding:14px 16px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);font-size:15px}
+        form label{display:block;font-size:15px;font-weight:600;margin-bottom:8px}
+        .field{margin-bottom:16px}
+        .field input,.field select{width:100%;border:1px solid var(--line);border-radius:14px;padding:14px 14px;font-size:16px;outline:none;background:#fff}
+        .field input:focus,.field select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+        .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .hint{color:var(--muted);font-size:14px;line-height:1.5;margin-top:-4px;margin-bottom:16px}
+        .status-line{color:var(--muted);font-size:14px;min-height:20px;margin-bottom:16px}
+        .errorlist{margin:0 0 16px;padding:12px 16px;border-radius:14px;background:#fee2e2;color:#991b1b;list-style:none}
+        @media (max-width:780px){.card{padding:22px}h1{font-size:30px}.grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <span class="badge">Cobrança só após o teste grátis</span>
+            <h1>Cadastre o cartão da assinatura</h1>
+            <p class="lead">Empresa: <strong>{{ empresa.nome_fantasia|default:empresa.nome }}</strong>. O plano <strong>{{ assinatura.plano.nome }}</strong> ficará em teste até <strong>{{ assinatura.vencimento|date:'d/m/Y' }}</strong> e a cobrança começará depois disso.</p>
+            <div class="actions">
+                <a href="{% url 'billing_status' %}" class="btn">Ver status</a>
+                <a href="{% url 'dashboard' %}" class="btn">Pular por enquanto</a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            {% if not mercadopago_enabled %}
+                <div class="alert alert-warning">As credenciais do Mercado Pago ainda não foram configuradas. Defina <strong>MERCADOPAGO_PUBLIC_KEY</strong> e <strong>MERCADOPAGO_ACCESS_TOKEN</strong> no ambiente do servidor.</div>
+            {% else %}
+                <div class="grid">
+                    <div class="summary">
+                        <h2>Resumo da assinatura</h2>
+                        <table class="summary-table">
+                            <tr><td>Plano</td><td>{{ assinatura.plano.nome }}</td></tr>
+                            <tr><td>Valor mensal</td><td>{{ assinatura.plano.preco_mensal|brl }}</td></tr>
+                            <tr><td>Teste grátis</td><td>{{ assinatura.plano.periodo_teste_dias }} dias</td></tr>
+                            <tr><td>Primeira cobrança</td><td>{{ assinatura.vencimento|date:'d/m/Y' }}</td></tr>
+                            <tr><td>Forma de cobrança</td><td>Recorrência mensal</td></tr>
+                        </table>
+                        {% if assinatura.cartao_cadastrado_em %}
+                            <div class="current-card">Cartão atual: {{ assinatura.cartao_bandeira|default:'Cartão' }} •••• {{ assinatura.cartao_ultimos_digitos }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-wrap">
+                        <h2>Dados do cartão</h2>
+                        {% if form.non_field_errors %}<ul class="errorlist">{{ form.non_field_errors }}</ul>{% endif %}
+                        <form id="card-form" method="post" novalidate>
+                            {% csrf_token %}
+                            {{ form.card_token }}
+                            {{ form.payment_method_id }}
+                            {{ form.issuer_id }}
+                            {{ form.installments }}
+
+                            <div class="field">
+                                <label for="cardNumber">Número do cartão</label>
+                                <input id="cardNumber" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" required>
+                            </div>
+                            <div class="row">
+                                <div class="field">
+                                    <label for="expirationDate">Validade</label>
+                                    <input id="expirationDate" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" required>
+                                </div>
+                                <div class="field">
+                                    <label for="securityCode">CVV</label>
+                                    <input id="securityCode" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="000" required>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="cardholderName">Nome impresso no cartão</label>
+                                <input id="cardholderName" type="text" autocomplete="cc-name" placeholder="Como aparece no cartão" required>
+                            </div>
+                            <div class="field">
+                                <label for="docType">Tipo de documento</label>
+                                <select id="docType" required>
+                                    <option value="CPF" selected>CPF</option>
+                                    <option value="CNPJ">CNPJ</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="docNumber">CPF ou CNPJ do titular</label>
+                                <input id="docNumber" type="text" inputmode="numeric" placeholder="123.456.789-09" required>
+                            </div>
+                            <div class="field">
+                                <label for="cardholderEmail">E-mail do titular</label>
+                                <input id="cardholderEmail" type="email" value="{{ request.user.email|default:empresa.email }}" required>
+                            </div>
+                            <div class="hint">Esta assinatura é recorrente. Não há parcelamento: a cobrança será mensal e automática no cartão cadastrado.</div>
+                            <div id="mp-status" class="status-line"></div>
+                            <button id="submitButton" class="btn btn-primary" type="submit">Salvar cartão e ativar cobrança após o teste</button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if mercadopago_enabled %}
+    <script>
+        const publicKey = "{{ mercadopago_public_key|escapejs }}";
+        const form = document.getElementById("card-form");
+        const submitButton = document.getElementById("submitButton");
+        const statusLine = document.getElementById("mp-status");
+        const hiddenToken = document.getElementById("id_card_token");
+        const hiddenPaymentMethod = document.getElementById("id_payment_method_id");
+        const hiddenIssuer = document.getElementById("id_issuer_id");
+        const hiddenInstallments = document.getElementById("id_installments");
+        const mp = new MercadoPago(publicKey, { locale: "pt-BR" });
+
+        function setStatus(message) { statusLine.textContent = message || ""; }
+        function onlyDigits(value) { return (value || "").replace(/\D/g, ""); }
+        function maskCard(value) { return onlyDigits(value).slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ").trim(); }
+        function maskExpiry(value) { const digits = onlyDigits(value).slice(0, 4); if (digits.length <= 2) return digits; return `${digits.slice(0, 2)}/${digits.slice(2)}`; }
+        function maskCvv(value) { return onlyDigits(value).slice(0, 4); }
+        function maskDoc(value, type) {
+            const digits = onlyDigits(value);
+            if (type === "CNPJ") {
+                return digits.slice(0, 14).replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
+            }
+            return digits.slice(0, 11).replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2");
+        }
+
+        document.getElementById("cardNumber").addEventListener("input", (e) => { e.target.value = maskCard(e.target.value); });
+        document.getElementById("expirationDate").addEventListener("input", (e) => { e.target.value = maskExpiry(e.target.value); });
+        document.getElementById("securityCode").addEventListener("input", (e) => { e.target.value = maskCvv(e.target.value); });
+        const docType = document.getElementById("docType");
+        const docNumber = document.getElementById("docNumber");
+        docType.addEventListener("change", () => { docNumber.value = maskDoc(docNumber.value, docType.value); });
+        docNumber.addEventListener("input", () => { docNumber.value = maskDoc(docNumber.value, docType.value); });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            submitButton.disabled = true;
+            setStatus("Validando cartão...");
+            hiddenInstallments.value = "1";
+            hiddenIssuer.value = "";
+
+            const [month = "", year = ""] = document.getElementById("expirationDate").value.split("/");
+            const cardData = {
+                cardNumber: onlyDigits(document.getElementById("cardNumber").value),
+                cardholderName: document.getElementById("cardholderName").value,
+                cardExpirationMonth: month,
+                cardExpirationYear: `20${year}`,
+                securityCode: onlyDigits(document.getElementById("securityCode").value),
+                identificationType: docType.value,
+                identificationNumber: onlyDigits(docNumber.value),
+                cardholderEmail: document.getElementById("cardholderEmail").value
+            };
+
+            try {
+                const paymentMethod = await mp.getPaymentMethods({ bin: cardData.cardNumber.slice(0, 6) });
+                const methods = paymentMethod?.results || [];
+                hiddenPaymentMethod.value = methods.length ? methods[0].id : "";
+            } catch (error) {
+                hiddenPaymentMethod.value = "";
+            }
+
+            try {
+                const tokenResponse = await mp.createCardToken(cardData);
+                hiddenToken.value = tokenResponse.id;
+                setStatus("Cartão validado. Salvando assinatura...");
+                form.submit();
+            } catch (error) {
+                const message = error?.message || error?.cause?.[0]?.description || "Não foi possível validar os dados do cartão.";
+                setStatus(message);
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

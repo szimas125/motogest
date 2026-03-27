@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% load br_filters %}
+{% block title %}Assinatura | EzStock{% endblock %}
+{% block page_title %}Status da assinatura{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Resumo atual</h5>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Empresa</span><strong>{{ empresa.nome_fantasia|default:empresa.nome }}</strong></div>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Plano</span><strong>{{ assinatura.plano.nome }}</strong></div>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Valor mensal</span><strong>{{ assinatura.plano.preco_mensal|brl }}</strong></div>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Status no sistema</span><strong>{{ assinatura.get_status_display }}</strong></div>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Status Mercado Pago</span><strong>{{ assinatura.mercado_pago_status|default:'Ainda não sincronizado' }}</strong></div>
+        <div class="d-flex justify-content-between border-bottom py-2"><span>Próxima cobrança</span><strong>{{ assinatura.vencimento|date:'d/m/Y' }}</strong></div>
+        <div class="d-flex justify-content-between py-2"><span>ID da assinatura</span><strong class="text-break">{{ assinatura.mercado_pago_preapproval_id|default:'Ainda não criada' }}</strong></div>
+        {% if assinatura.cartao_cadastrado %}
+          <div class="alert alert-success mt-3 mb-0">Cartão cadastrado: {{ assinatura.cartao_bandeira|default:'Cartão' }} •••• {{ assinatura.cartao_ultimos_digitos }}</div>
+        {% else %}
+          <div class="alert alert-warning mt-3 mb-0">Nenhum cartão salvo ainda. Cadastre o cartão para habilitar a cobrança automática após o teste.</div>
+        {% endif %}
+        <div class="d-flex gap-2 flex-wrap mt-3">
+          <a href="{% url 'billing_checkout' %}" class="btn btn-primary">Cadastrar ou trocar cartão</a>
+          <a href="{% url 'plans' %}" class="btn btn-outline-secondary">Ver planos</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Histórico da assinatura</h5>
+          <span class="badge text-bg-light">últimos {{ eventos|length }} eventos</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Data</th><th>Origem</th><th>Evento</th><th>Descrição</th></tr></thead>
+            <tbody>
+              {% for evento in eventos %}
+                <tr>
+                  <td>{{ evento.criado_em|date:'d/m/Y H:i' }}</td>
+                  <td>{{ evento.origem }}</td>
+                  <td>{{ evento.tipo }}</td>
+                  <td>{{ evento.descricao|default:'-' }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="text-muted">Ainda não há eventos registrados para esta assinatura.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-muted small mb-0">Use esta tela para acompanhar se o cartão foi vinculado, quando a próxima cobrança deve acontecer e quais retornos já chegaram do gateway.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

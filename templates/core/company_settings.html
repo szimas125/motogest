@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Empresa | EzStock{% endblock %}
+{% block page_title %}Dados da empresa{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post">
+          {% csrf_token %}
+          <h5 class="mb-3">Informações principais</h5>
+          <div class="row g-3 mb-4">
+            {% for field in form_empresa %}
+            <div class="col-md-6">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <h5 class="mb-3">Personalização e documentos</h5>
+          <div class="row g-3">
+            {% for field in form_config %}
+            <div class="col-md-6 {% if field.name == 'rodape_nota' %}col-12{% endif %}">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <button class="btn btn-primary mt-4">Salvar alterações</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Resumo da assinatura</h5>
+        <div class="mb-2"><strong>Plano:</strong> {{ assinatura.plano.nome }}</div>
+        <div class="mb-2"><strong>Status:</strong> {{ assinatura.get_status_display }}</div>
+        <div class="mb-2"><strong>Vencimento:</strong> {{ assinatura.vencimento|date:'d/m/Y' }}</div>
+      </div>
+    </div>
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="mb-3">Dica</h5>
+        <p class="text-muted mb-0">Preencha os dados da empresa para deixar as ordens de serviço e notas internas com aparência mais profissional para o cliente.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% load br_filters %}
+{% block title %}Produtos | EzStock{% endblock %}
+{% block page_title %}Produtos{% endblock %}
+{% block content %}
+<div class="card soft-card border-0 shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="mb-0">Produtos da empresa</h5>
+      <div class="d-flex gap-2 flex-wrap">
+        <form method="get" class="d-flex gap-2">
+          <input type="text" name="q" value="{{ busca }}" class="form-control" placeholder="Buscar por produto, SKU, marca ou categoria">
+          <button class="btn btn-outline-secondary">Buscar</button>
+        </form>
+        <a href="{% url 'category_create' %}" class="btn btn-outline-primary btn-sm">Nova categoria</a>
+        <a href="{% url 'product_create' %}" class="btn btn-primary btn-sm">Novo produto</a>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>Produto</th><th>Categoria</th><th>Marca</th><th>Preço de venda</th><th>Estoque</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td><strong>{{ product.nome }}</strong><br><span class="text-muted small">SKU: {{ product.sku }}</span></td>
+            <td>{{ product.categoria.nome }}</td>
+            <td>{{ product.marca|default:'-' }}</td>
+            <td>{{ product.preco_venda|brl }}</td>
+            <td>{% if product.estoque_atual <= product.estoque_minimo %}<span class="badge text-bg-warning">{{ product.estoque_atual }}</span>{% else %}{{ product.estoque_atual }}{% endif %}</td>
+            <td>{% if product.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <a href="{% url 'product_edit' product.id %}" class="btn btn-outline-primary">Editar</a>
+                <a href="{% url 'product_delete' product.id %}" class="btn btn-outline-danger">Excluir</a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}<tr><td colspan="7" class="text-muted">Nenhum produto cadastrado.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

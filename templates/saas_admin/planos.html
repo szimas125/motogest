@@ -1,0 +1,29 @@
+{% extends 'saas_admin/base.html' %}
+{% load br_filters %}
+{% block title %}Planos | EzStock Admin{% endblock %}
+{% block page_title %}Planos do sistema{% endblock %}
+{% block content %}
+<div class="soft-card p-4">
+  <div class="d-flex justify-content-end mb-3"><a href="{% url 'saas_admin_plano_create' %}" class="btn btn-primary">Novo plano</a></div>
+<form class="row g-3 mb-4">
+    <div class="col-md-8"><input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Busque por nome ou descrição"></div>
+    <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary">Buscar</button><a href="{% url 'saas_admin_planos' %}" class="btn btn-outline-secondary">Limpar</a></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Plano</th><th>Preço</th><th>Limites</th><th>Clientes</th><th></th></tr></thead>
+      <tbody>
+      {% for plano in planos %}
+        <tr>
+          <td><strong>{{ plano.nome }}</strong><div class="small text-muted">{{ plano.descricao|default:'Sem descrição curta' }}</div></td>
+          <td>{{ plano.preco_mensal|brl }}</td>
+          <td><div class="small">Usuários: {{ plano.limite_usuarios|default:'Ilimitado' }}</div><div class="small">OS/mês: {{ plano.limite_ordens_mes|default:'Ilimitado' }}</div></td>
+          <td>{{ plano.total_clientes }}</td>
+          <td><a href="{% url 'saas_admin_plano_edit' plano.id %}" class="btn btn-sm btn-primary">Editar aqui</a></td>
+        </tr>
+      {% empty %}<tr><td colspan="5" class="text-muted">Nenhum plano encontrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

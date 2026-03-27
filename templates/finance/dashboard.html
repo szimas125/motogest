@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load br_filters %}
+{% block title %}Financeiro | EzStock{% endblock %}
+{% block page_title %}Financeiro{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="text-muted small">Receitas do mês</div><h3>{{ resumo.receitas|brl }}</h3></div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="text-muted small">Despesas do mês</div><h3>{{ resumo.despesas|brl }}</h3></div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="text-muted small">Saldo do mês</div><h3>{{ resumo.saldo|brl }}</h3></div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm border-0"><div class="card-body"><div class="text-muted small">Em aberto / atrasado</div><h3>{{ resumo.em_aberto|brl }}</h3><div class="small text-danger">Atrasado: {{ resumo.atrasado|brl }}</div></div></div></div>
+</div>
+<div class="d-flex gap-2 flex-wrap mb-3">
+  <a href="{% url 'account_receivable_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Conta a receber</a>
+  <a href="{% url 'cash_entry_create' %}" class="btn btn-outline-primary"><i class="bi bi-cash-coin"></i> Lançamento</a>
+</div>
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    <form class="row g-2">
+      <div class="col-md-8"><input type="text" class="form-control" name="q" value="{{ busca }}" placeholder="Buscar por descrição, OS ou cliente"></div>
+      <div class="col-md-4"><button class="btn btn-dark w-100">Buscar</button></div>
+    </form>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0">Contas a receber</h5><small class="text-muted">Últimas 20</small></div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Descrição</th><th>Vencimento</th><th>Valor</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+            <tbody>
+              {% for conta in contas %}
+              <tr>
+                <td>
+                  <strong>{{ conta.descricao }}</strong>
+                  {% if conta.ordem_servico %}<div class="small text-muted">OS {{ conta.ordem_servico.numero }} · {{ conta.ordem_servico.cliente.nome }}</div>{% endif %}
+                </td>
+                <td>{{ conta.vencimento|date:'d/m/Y' }}</td>
+                <td>{{ conta.valor|brl }}</td>
+                <td><span class="badge text-bg-{% if conta.status == 'PAGA' %}success{% elif conta.status == 'ATRASADA' %}danger{% elif conta.status == 'CANCELADA' %}secondary{% else %}warning{% endif %}">{{ conta.get_status_display }}</span></td>
+                <td class="text-end">
+                  <a href="{% url 'account_receivable_edit' conta.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                  {% if conta.status != 'PAGA' %}
+                  <form method="post" action="{% url 'account_receivable_pay' conta.pk %}" class="d-inline-flex gap-1 ms-1">{% csrf_token %}
+                    <select name="forma_pagamento" class="form-select form-select-sm">
+                      <option value="PIX">PIX</option><option value="DINHEIRO">Dinheiro</option><option value="CARTAO">Cartão</option><option value="TRANSFERENCIA">Transferência</option>
+                    </select>
+                    <button class="btn btn-sm btn-success">Receber</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-4">Nenhuma conta encontrada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="mb-3">Últimos lançamentos</h5>
+        <div class="d-grid gap-2">
+          {% for item in lancamentos %}
+          <div class="border rounded-3 p-3">
+            <div class="d-flex justify-content-between"><strong>{{ item.descricao }}</strong><span class="badge text-bg-{% if item.tipo == 'RECEITA' %}success{% else %}danger{% endif %}">{{ item.get_tipo_display }}</span></div>
+            <div class="small text-muted">{{ item.data_lancamento|date:'d/m/Y' }} · {{ item.categoria|default:'Sem categoria' }}</div>
+            <div class="mt-2 fw-semibold">{{ item.valor|brl }}</div>
+          </div>
+          {% empty %}
+          <div class="text-muted">Sem lançamentos registrados.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

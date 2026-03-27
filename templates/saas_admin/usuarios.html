@@ -1,0 +1,28 @@
+{% extends 'saas_admin/base.html' %}
+{% block title %}Usuários | EzStock Admin{% endblock %}
+{% block page_title %}Usuários e vínculos{% endblock %}
+{% block content %}
+<div class="soft-card p-4">
+  <form class="row g-3 mb-4">
+    <div class="col-md-8"><input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Busque por nome, usuário, e-mail ou empresa"></div>
+    <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary">Buscar</button><a href="{% url 'saas_admin_usuarios' %}" class="btn btn-outline-secondary">Limpar</a></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Usuário</th><th>E-mail</th><th>Empresa</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for vinculo in vinculos %}
+        <tr>
+          <td>{{ vinculo.usuario.get_full_name|default:vinculo.usuario.username }}</td>
+          <td>{{ vinculo.usuario.email|default:'Sem e-mail' }}</td>
+          <td>{{ vinculo.empresa.nome_fantasia|default:vinculo.empresa.nome }}</td>
+          <td>{{ vinculo.get_perfil_display }}</td>
+          <td>{% if vinculo.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+          <td><a href="/admin/core/vinculousuarioempresa/{{ vinculo.id }}/change/" class="btn btn-sm btn-outline-dark">Abrir</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-muted">Nenhum vínculo encontrado.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

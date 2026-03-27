@@ -1,0 +1,119 @@
+{% extends "base.html" %}{% load br_filters %}
+{% block title %}Painel | EzStock{% endblock %}
+{% block page_title %}Painel da empresa{% endblock %}
+{% block content %}
+{% if bloqueada %}
+<div class="alert alert-warning shadow-sm">Sua assinatura está com acesso restrito. Atualize o plano ou regularize o pagamento para voltar a cadastrar produtos, clientes, produtos e ordens de serviço.</div>
+{% endif %}
+<div class="row g-4 mb-4">
+  <div class="col-lg-3 col-md-6"><div class="metric-card"><span>Produtos cadastrados</span><h2>{{ total_produtos }}</h2></div></div>
+  <div class="col-lg-3 col-md-6"><div class="metric-card"><span>Clientes ativos</span><h2>{{ total_clientes }}</h2></div></div>
+  <div class="col-lg-3 col-md-6"><div class="metric-card"><span>Ordens em aberto</span><h2>{{ os_abertas }}</h2></div></div>
+  <div class="col-lg-3 col-md-6"><div class="metric-card"><span>Faturamento</span><h2>{{ faturamento|brl }}</h2></div></div>
+</div>
+
+<div class="card soft-card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-lg-4"><strong>Plano atual:</strong> {{ assinatura.plano.nome }} • {{ assinatura.get_status_display }}</div>
+      <div class="col-lg-3"><strong>Vence em:</strong> {{ assinatura.vencimento|date:'d/m/Y' }}</div>
+      <div class="col-lg-5">
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="limit-chip">Usuários: {{ limites.usuarios }}/{{ limites.usuarios_limite|default:'Ilimitado' }}</span>
+          <span class="limit-chip">Produtos: {{ limites.produtos }}/{{ limites.produtos_limite|default:'Ilimitado' }}</span>
+          <span class="limit-chip">OS: {{ limites.os_mes }}/{{ limites.os_limite|default:'Ilimitado' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Últimas ordens de serviço</h5>
+          <span class="badge text-bg-primary">{{ empresa.nome_fantasia|default:empresa.nome }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Número</th><th>Cliente</th><th>Produto</th><th>Status</th><th>Total</th></tr></thead>
+            <tbody>
+              {% for os in ultimas_os %}
+              <tr>
+                <td><a href="{% url 'service_order_detail' os.id %}">{{ os.numero }}</a></td>
+                <td>{{ os.cliente.nome }}</td>
+                <td>{{ os.produto.marca }} {{ os.produto.modelo }}</td>
+                <td>{{ os.get_status_display }}</td>
+                <td>{{ os.valor_total|brl }}</td>
+              </tr>
+              {% empty %}<tr><td colspan="5" class="text-muted">Nenhuma ordem cadastrada.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="mb-3">Últimas movimentações de estoque</h5>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Quantidade</th></tr></thead>
+            <tbody>
+              {% for movimento in movimentacoes %}
+              <tr>
+                <td>{{ movimento.criado_em|date:'d/m/Y H:i' }}</td>
+                <td>{{ movimento.produto.nome }}</td>
+                <td>{{ movimento.get_tipo_movimentacao_display }}</td>
+                <td>{{ movimento.quantidade }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-muted">Nenhuma movimentação registrada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Assinatura</h5>
+        <div class="mb-2"><strong>Plano:</strong> {{ assinatura.plano.nome }}</div>
+        <div class="mb-2"><strong>Status:</strong> {{ assinatura.get_status_display }}</div>
+        <div class="mb-2"><strong>Mensalidade:</strong> {{ assinatura.plano.preco_mensal|brl }}</div>
+        <div class="d-flex gap-2 flex-wrap mt-2">
+          <a href="{% url 'plans' %}" class="btn btn-outline-primary btn-sm">Gerenciar plano</a>
+          <a href="{% url 'billing_status' %}" class="btn btn-outline-dark btn-sm">Status da assinatura</a>
+        </div>
+      </div>
+    </div>
+    <div class="card soft-card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Resumo financeiro</h5>
+        <div class="mb-2"><strong>Receitas do mês:</strong> {{ financeiro.receitas|brl }}</div>
+        <div class="mb-2"><strong>Despesas do mês:</strong> {{ financeiro.despesas|brl }}</div>
+        <div class="mb-2"><strong>Saldo:</strong> {{ financeiro.saldo|brl }}</div>
+        <div class="mb-2"><strong>Em aberto:</strong> {{ financeiro.em_aberto|brl }}</div>
+        <a href="{% url 'finance_dashboard' %}" class="btn btn-outline-primary btn-sm mt-2">Abrir financeiro</a>
+      </div>
+    </div>
+    <div class="card soft-card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="mb-3">Alerta de estoque baixo</h5>
+        {% for produto in baixo_estoque %}
+          <div class="stock-alert">
+            <strong>{{ produto.nome }}</strong><br>
+            <span class="text-muted">Saldo atual: {{ produto.estoque_atual }}</span>
+          </div>
+        {% empty %}
+          <div class="text-muted">Nenhum produto com estoque crítico.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

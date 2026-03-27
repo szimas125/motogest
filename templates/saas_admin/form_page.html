@@ -1,0 +1,28 @@
+{% extends 'saas_admin/base.html' %}
+{% block title %}{{ titulo }} | EzStock Admin{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="soft-card p-4">
+  <div class="mb-4">
+    <h5 class="mb-1">{{ subtitulo }}</h5>
+    <div class="text-muted small">Atualize as informações diretamente por este painel, sem depender do Django Admin.</div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <div class="row g-3">
+      {% for field in form %}
+      <div class="col-md-6 {% if field.field.widget.input_type == 'textarea' or field.name == 'recursos' %}col-12{% endif %}">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="small text-muted mt-1">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="small text-danger mt-1">{{ field.errors|join:', ' }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="d-flex gap-2 mt-4">
+      <button class="btn btn-primary">Salvar alterações</button>
+      <a href="{{ voltar_url }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

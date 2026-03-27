@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% load br_filters %}
+{% block title %}Planos e assinatura | EzStock{% endblock %}
+{% block page_title %}Planos e assinatura{% endblock %}
+{% block content %}
+<div class="row g-4 mb-4">
+  <div class="col-lg-4"><div class="metric-card"><span>Plano atual</span><h2>{{ assinatura.plano.nome }}</h2><small class="text-muted">{{ assinatura.get_status_display }}</small></div></div>
+  <div class="col-lg-4"><div class="metric-card"><span>Mensalidade</span><h2>{{ assinatura.plano.preco_mensal|brl }}</h2><small class="text-muted">Vencimento em {{ assinatura.vencimento|date:'d/m/Y' }}</small></div></div>
+  <div class="col-lg-4"><div class="metric-card"><span>Uso do mês</span><h2>{{ limites.os_mes }}</h2><small class="text-muted">OS no mês atual</small></div></div>
+</div>
+
+<div class="card soft-card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="mb-3">Limites do plano atual</h5>
+    <div class="row g-3">
+      <div class="col-md-4"><div class="limit-chip">Usuários: <strong>{{ limites.usuarios }}</strong> / {{ limites.usuarios_limite|default:'Ilimitado' }}</div></div>
+      <div class="col-md-4"><div class="limit-chip">Produtos: <strong>{{ limites.produtos }}</strong> / {{ limites.produtos_limite|default:'Ilimitado' }}</div></div>
+      <div class="col-md-4"><div class="limit-chip">OS/mês: <strong>{{ limites.os_mes }}</strong> / {{ limites.os_limite|default:'Ilimitado' }}</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 align-items-stretch">
+  {% for plano in planos %}
+  <div class="col-xl-4 col-lg-6">
+    <div class="pricing-card {% if assinatura.plano_id == plano.id %}pricing-featured{% endif %}">
+      {% if assinatura.plano_id == plano.id %}<div class="pricing-badge">Plano atual</div>{% endif %}
+      <h4>{{ plano.nome }}</h4>
+      <div class="price">{{ plano.preco_mensal|brl }}<small>/mês</small></div>
+      <p class="text-muted">{{ plano.descricao }}</p>
+      <ul class="list-unstyled pricing-list mb-4">
+        {% for recurso in plano.recursos_lista %}
+        <li><i class="bi bi-check2-circle"></i> {{ recurso }}</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{% url 'change_plan' plano.id %}">
+        {% csrf_token %}
+        <button class="btn {% if assinatura.plano_id == plano.id %}btn-secondary{% else %}btn-primary{% endif %} w-100" {% if assinatura.plano_id == plano.id %}disabled{% endif %}>
+          {% if assinatura.plano_id == plano.id %}Plano ativo{% elif plano.preco_mensal > assinatura.plano.preco_mensal %}Fazer upgrade agora{% else %}Agendar downgrade{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if solicitacoes %}
+<div class="card soft-card border-0 shadow-sm mt-4">
+  <div class="card-body">
+    <h5 class="mb-3">Últimas solicitações</h5>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Data</th><th>Plano solicitado</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for item in solicitacoes %}
+          <tr><td>{{ item.criada_em|date:'d/m/Y H:i' }}</td><td>{{ item.plano_solicitado.nome }}</td><td>{{ item.get_status_display }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
