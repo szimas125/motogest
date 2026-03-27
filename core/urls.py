@@ -36,6 +36,7 @@ urlpatterns = [
     path('assinatura/status/', billing_status, name='billing_status'),
     path('assinatura/bloqueada/', blocked_subscription, name='blocked_subscription'),
     path('assinatura/webhook/mercado-pago/', billing_webhook, name='billing_webhook'),
+    path('assinatura/webhook/mercado-pago', billing_webhook, name='billing_webhook'),
     path('planos/<int:plano_id>/trocar/', trocar_plano, name='change_plan'),
     path('equipe/', equipe, name='team'),
     path('equipe/<int:pk>/atualizar/', atualizar_vinculo, name='team_update'),
