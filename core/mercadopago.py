@@ -28,12 +28,17 @@ def _parse_mp_date(value):
 
 def _sync_status_from_mp(assinatura, mp_status, next_payment_date=None):
     hoje = timezone.localdate()
+    vencimento_atual = assinatura.vencimento
+
     if mp_status:
         assinatura.mercado_pago_status = mp_status
 
-    if next_payment_date:
-        parsed = _parse_mp_date(next_payment_date)
-        if parsed:
+    parsed = _parse_mp_date(next_payment_date) if next_payment_date else None
+    if parsed:
+        if assinatura.status == 'TESTE' and vencimento_atual:
+            if parsed > vencimento_atual:
+                assinatura.vencimento = parsed
+        else:
             assinatura.vencimento = parsed
 
     status = (mp_status or '').lower()
@@ -75,23 +80,13 @@ class MercadoPagoService:
         proxima_cobranca = agora + timezone.timedelta(days=plano.periodo_teste_dias)
 
         payer_email = (
-            request.POST.get('cardholder_email')
-            or request.POST.get('payer_email')
-            or request.POST.get('email')
+            (request.POST.get('holder_email') or '').strip()
             or getattr(empresa, 'email', '')
             or getattr(request.user, 'email', '')
             or 'buyer@testuser.com'
         ).strip()
 
-        document_type = (
-            request.POST.get('doc_type')
-            or request.POST.get('document_type')
-            or request.POST.get('identificationType')
-            or request.POST.get('identification_type')
-            or 'CPF'
-        ).strip().upper()
-
-        document_number = (
+        cpf = (
             request.POST.get('cpf')
             or request.POST.get('cpf_cnpj')
             or request.POST.get('doc_number')
@@ -99,13 +94,19 @@ class MercadoPagoService:
             or request.POST.get('document')
             or request.POST.get('documento')
             or request.POST.get('identificationNumber')
-            or request.POST.get('identification_number')
             or ''
         )
-        document_number = ''.join(ch for ch in document_number if ch.isdigit())
+        cpf = ''.join(ch for ch in cpf if ch.isdigit())
 
-        if not document_number:
-            raise MercadoPagoConfigError('Documento do titular não enviado para o Mercado Pago.')
+        if not cpf:
+            raise MercadoPagoConfigError('CPF do titular não enviado para o Mercado Pago.')
+
+        document_type = (
+            request.POST.get('document_type')
+            or request.POST.get('doc_type')
+            or request.POST.get('identificationType')
+            or 'CPF'
+        ).strip().upper()
 
         start_date = proxima_cobranca.strftime('%Y-%m-%dT%H:%M:%S.000-03:00')
 
@@ -116,7 +117,7 @@ class MercadoPagoService:
                 'email': payer_email,
                 'identification': {
                     'type': document_type,
-                    'number': document_number,
+                    'number': cpf,
                 }
             },
             'card_token_id': card_token_id,
