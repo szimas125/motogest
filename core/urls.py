@@ -8,6 +8,7 @@ from .views import (
     dashboard,
     editar_empresa,
     equipe,
+    excluir_vinculo,
     pagina_inicial,
     planos_empresa,
     selecionar_empresa,
@@ -42,6 +43,7 @@ urlpatterns = [
     path('planos/<int:plano_id>/trocar/', trocar_plano, name='change_plan'),
     path('equipe/', equipe, name='team'),
     path('equipe/<int:pk>/atualizar/', atualizar_vinculo, name='team_update'),
+    path('equipe/<int:pk>/excluir/', excluir_vinculo, name='team_delete'),
     path('empresa/', editar_empresa, name='company_settings'),
     path('selecionar-empresa/', selecionar_empresa, name='selecionar_empresa'),
 
@@ -55,15 +57,6 @@ urlpatterns = [
     path('painel-admin/empresas/<int:pk>/editar/', editar_empresa_saas, name='saas_admin_empresa_edit'),
     path('painel-admin/assinaturas/<int:pk>/editar/', editar_assinatura_saas, name='saas_admin_assinatura_edit'),
     path('painel-admin/planos/<int:pk>/editar/', editar_plano_saas, name='saas_admin_plano_edit'),
-
-    path(
-        'painel-admin/solicitacoes/<int:pk>/aprovar/',
-        aprovar_solicitacao_plano_saas,
-        name='aprovar_solicitacao',
-    ),
-    path(
-        'painel-admin/solicitacoes/<int:pk>/recusar/',
-        recusar_solicitacao_plano_saas,
-        name='recusar_solicitacao',
-    ),
+    path('painel-admin/solicitacoes/<int:pk>/aprovar/', aprovar_solicitacao_plano_saas, name='aprovar_solicitacao'),
+    path('painel-admin/solicitacoes/<int:pk>/recusar/', recusar_solicitacao_plano_saas, name='recusar_solicitacao'),
 ]

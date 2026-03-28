@@ -244,6 +244,33 @@ def equipe(request):
 
 @login_required
 @require_company_profile('ADMIN', 'GERENTE')
+def excluir_vinculo(request, pk):
+    empresa = obter_empresa_atual(request)
+    if not empresa:
+        return redirect('selecionar_empresa')
+
+    vinculo = get_object_or_404(VinculoUsuarioEmpresa.objects.select_related('usuario'), pk=pk, empresa=empresa)
+
+    if empresa_bloqueada(empresa):
+        messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
+        return redirect('plans')
+
+    if request.method != 'POST':
+        return redirect('team')
+
+    total_admins = empresa.usuarios_vinculados.filter(ativo=True, perfil='ADMIN').count()
+    if vinculo.perfil == 'ADMIN' and vinculo.ativo and total_admins <= 1:
+        messages.error(request, 'Não é possível excluir o último administrador ativo da empresa.')
+        return redirect('team')
+
+    usuario_nome = vinculo.usuario.get_full_name() or vinculo.usuario.username
+    vinculo.delete()
+    messages.success(request, f'Usuário {usuario_nome} removido com sucesso.')
+    return redirect('team')
+
+
+@login_required
+@require_company_profile('ADMIN', 'GERENTE')
 def editar_empresa(request):
     empresa = obter_empresa_atual(request)
     if not empresa:
@@ -294,6 +321,11 @@ def atualizar_vinculo(request, pk):
                 request,
                 'Você atingiu o limite de usuários ativos do seu plano. Faça upgrade ou desative outro usuário antes de ativar este.'
             )
+            return redirect('team')
+
+        total_admins = empresa.usuarios_vinculados.filter(ativo=True, perfil='ADMIN').count()
+        if vinculo.perfil == 'ADMIN' and vinculo.ativo and not deseja_ativar and total_admins <= 1:
+            messages.error(request, 'Não é possível desativar o último administrador ativo da empresa.')
             return redirect('team')
 
         if form.is_valid():
