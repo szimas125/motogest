@@ -22,6 +22,7 @@
         .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
         .btn-ok{background:#16a34a;color:#fff}
         .btn-no{background:#dc2626;color:#fff}
+        .btn-apply{background:#2563eb;color:#fff}
         .tag{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:700}
         .muted{color:#64748b}
         @media (max-width: 960px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -86,6 +87,13 @@
                                         <form method="post" action="{% url 'recusar_solicitacao' solicitacao.pk %}">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-no">Recusar</button>
+                                        </form>
+                                    </div>
+                                {% elif solicitacao.status == 'APROVADA' and solicitacao.assinatura.plano_id != solicitacao.plano_solicitado_id %}
+                                    <div class="actions">
+                                        <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-apply">Aplicar agora</button>
                                         </form>
                                     </div>
                                 {% else %}
