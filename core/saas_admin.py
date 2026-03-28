@@ -260,7 +260,7 @@ def aprovar_solicitacao_plano_saas(request, pk):
         if assinatura.plano_id != solicitacao.plano_solicitado_id:
             aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
         solicitacao.status = 'APLICADA'
-        solicitacao.save(update_fields=['status', 'atualizado_em'])
+        solicitacao.save(update_fields=['status'])
         messages.success(
             request,
             f'Troca para o plano {solicitacao.plano_solicitado.nome} aplicada com sucesso.'
@@ -277,7 +277,7 @@ def recusar_solicitacao_plano_saas(request, pk):
     )
     if request.method == 'POST':
         solicitacao.status = 'RECUSADA'
-        solicitacao.save(update_fields=['status', 'atualizado_em'])
+        solicitacao.save(update_fields=['status'])
         assinatura = solicitacao.assinatura
         assinatura.proximo_plano = None
         assinatura.save(update_fields=['proximo_plano', 'atualizado_em'])
