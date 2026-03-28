@@ -1,15 +1,13 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count
-from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.text import slugify
 
 from inventory.models import Produto
 from workshop.models import OrdemServico
 
-from .models import Assinatura, ConfiguracaoEmpresa, Empresa, Plano, SolicitacaoPlano, VinculoUsuarioEmpresa
+from .models import Assinatura, ConfiguracaoEmpresa, Empresa, SolicitacaoPlano, VinculoUsuarioEmpresa
 
 User = get_user_model()
 
@@ -26,21 +24,6 @@ def obter_vinculos_usuario(usuario):
     )
 
 
-def _aplicar_solicitacao_aprovada_pendente(assinatura):
-    if not assinatura:
-        return None
-
-    solicitacao = assinatura.solicitacoes.filter(status='APROVADA').select_related('plano_solicitado').order_by('-criada_em').first()
-    if not solicitacao:
-        return assinatura
-
-    if solicitacao.plano_solicitado_id and assinatura.plano_id != solicitacao.plano_solicitado_id:
-        aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
-    assinatura.proximo_plano = None
-    assinatura.save(update_fields=['proximo_plano', 'atualizado_em'])
-    return assinatura
-
-
 def obter_empresa_atual(request):
     if not request.user.is_authenticated:
         return None
@@ -54,7 +37,6 @@ def obter_empresa_atual(request):
             assinatura = getattr(vinculo.empresa, 'assinatura', None)
             if assinatura:
                 assinatura.sincronizar_status()
-                _aplicar_solicitacao_aprovada_pendente(assinatura)
             return vinculo.empresa
 
     primeiro = vinculos.first()
@@ -63,7 +45,6 @@ def obter_empresa_atual(request):
         assinatura = getattr(primeiro.empresa, 'assinatura', None)
         if assinatura:
             assinatura.sincronizar_status()
-            _aplicar_solicitacao_aprovada_pendente(assinatura)
         return primeiro.empresa
 
     return None
@@ -82,7 +63,6 @@ def empresa_bloqueada(empresa):
         return True
 
     assinatura.sincronizar_status()
-    _aplicar_solicitacao_aprovada_pendente(assinatura)
 
     hoje = timezone.localdate()
     status = (assinatura.status or '').upper()
@@ -188,7 +168,11 @@ def aplicar_troca_plano(assinatura, novo_plano, renovar_ciclo=True):
     if renovar_ciclo:
         assinatura.vencimento = timezone.localdate() + timedelta(days=30)
     assinatura.save()
+
+    # Fecha solicitações antigas relacionadas a esta assinatura.
     assinatura.solicitacoes.filter(status='ABERTA').update(status='APROVADA')
+    assinatura.solicitacoes.filter(status='APROVADA', plano_solicitado=novo_plano).update(status='APLICADA')
+
     return assinatura
 
 
