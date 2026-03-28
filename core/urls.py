@@ -4,6 +4,7 @@ from .views import (
     billing_checkout,
     billing_status,
     billing_webhook,
+    cancelar_assinatura_cliente,
     comecar_agora,
     dashboard,
     editar_empresa,
@@ -37,6 +38,7 @@ urlpatterns = [
     path('planos/', planos_empresa, name='plans'),
     path('assinatura/cartao/', billing_checkout, name='billing_checkout'),
     path('assinatura/status/', billing_status, name='billing_status'),
+    path('assinatura/cancelar/', cancelar_assinatura_cliente, name='cancel_subscription'),
     path('assinatura/bloqueada/', blocked_subscription, name='blocked_subscription'),
     path('assinatura/webhook/mercado-pago/', billing_webhook, name='billing_webhook'),
     path('assinatura/webhook/mercado-pago', billing_webhook, name='billing_webhook_no_slash'),
@@ -46,7 +48,6 @@ urlpatterns = [
     path('equipe/<int:pk>/excluir/', excluir_vinculo, name='team_delete'),
     path('empresa/', editar_empresa, name='company_settings'),
     path('selecionar-empresa/', selecionar_empresa, name='selecionar_empresa'),
-
     path('painel-admin/', painel_admin, name='saas_admin_dashboard'),
     path('painel-admin/empresas/', saas_empresas, name='saas_admin_empresas'),
     path('painel-admin/empresas/nova/', criar_empresa_saas, name='saas_admin_empresa_create'),

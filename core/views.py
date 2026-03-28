@@ -197,6 +197,64 @@ def trocar_plano(request, plano_id):
 
 
 @login_required
+@require_company_profile('ADMIN')
+def cancelar_assinatura_cliente(request):
+    empresa = obter_empresa_atual(request)
+    if not empresa:
+        return redirect('selecionar_empresa')
+
+    assinatura = getattr(empresa, 'assinatura', None)
+    if not assinatura:
+        messages.error(request, 'Nenhuma assinatura encontrada para esta empresa.')
+        return redirect('plans')
+
+    if request.method != 'POST':
+        return redirect('billing_status')
+
+    if assinatura.status == 'CANCELADA':
+        messages.info(request, 'A assinatura já está cancelada.')
+        return redirect('billing_status')
+
+    erro_mp = None
+    if settings.MERCADOPAGO_ENABLED and assinatura.mercado_pago_preapproval_id:
+        try:
+            service = MercadoPagoService()
+            if hasattr(service, 'cancelar_assinatura'):
+                response = service.cancelar_assinatura(assinatura.mercado_pago_preapproval_id)
+                assinatura.mercado_pago_status = (
+                    response.get('status')
+                    or response.get('auto_recurring', {}).get('status')
+                    or 'cancelled'
+                )
+            else:
+                assinatura.mercado_pago_status = 'cancelled'
+        except Exception as exc:
+            erro_mp = str(exc)
+
+    assinatura.status = 'CANCELADA'
+    assinatura.proximo_plano = None
+    assinatura.save(update_fields=['status', 'mercado_pago_status', 'proximo_plano', 'atualizado_em'])
+
+    EventoAssinatura.objects.create(
+        assinatura=assinatura,
+        origem='cliente',
+        tipo='cancelamento_assinatura',
+        descricao='Assinatura cancelada pela empresa no painel do cliente.',
+        payload={'erro_mercado_pago': erro_mp} if erro_mp else {},
+    )
+
+    if erro_mp:
+        messages.warning(
+            request,
+            'A assinatura foi cancelada no EzStock, mas houve falha ao confirmar no Mercado Pago. '
+            f'Detalhe: {erro_mp}'
+        )
+    else:
+        messages.success(request, 'Assinatura cancelada com sucesso.')
+    return redirect('billing_status')
+
+
+@login_required
 @require_company_profile('ADMIN', 'GERENTE')
 def equipe(request):
     empresa = obter_empresa_atual(request)
