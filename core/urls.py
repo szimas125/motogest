@@ -15,12 +15,14 @@ from .views import (
     atualizar_vinculo,
 )
 from .saas_admin import (
+    aprovar_solicitacao_plano_saas,
     criar_empresa_saas,
     criar_plano_saas,
     editar_assinatura_saas,
     editar_empresa_saas,
     editar_plano_saas,
     painel_admin,
+    recusar_solicitacao_plano_saas,
     saas_assinaturas,
     saas_empresas,
     saas_planos,
@@ -36,12 +38,13 @@ urlpatterns = [
     path('assinatura/status/', billing_status, name='billing_status'),
     path('assinatura/bloqueada/', blocked_subscription, name='blocked_subscription'),
     path('assinatura/webhook/mercado-pago/', billing_webhook, name='billing_webhook'),
-    path('assinatura/webhook/mercado-pago', billing_webhook, name='billing_webhook'),
+    path('assinatura/webhook/mercado-pago', billing_webhook, name='billing_webhook_no_slash'),
     path('planos/<int:plano_id>/trocar/', trocar_plano, name='change_plan'),
     path('equipe/', equipe, name='team'),
     path('equipe/<int:pk>/atualizar/', atualizar_vinculo, name='team_update'),
     path('empresa/', editar_empresa, name='company_settings'),
     path('selecionar-empresa/', selecionar_empresa, name='selecionar_empresa'),
+
     path('painel-admin/', painel_admin, name='saas_admin_dashboard'),
     path('painel-admin/empresas/', saas_empresas, name='saas_admin_empresas'),
     path('painel-admin/empresas/nova/', criar_empresa_saas, name='saas_admin_empresa_create'),
@@ -52,4 +55,15 @@ urlpatterns = [
     path('painel-admin/empresas/<int:pk>/editar/', editar_empresa_saas, name='saas_admin_empresa_edit'),
     path('painel-admin/assinaturas/<int:pk>/editar/', editar_assinatura_saas, name='saas_admin_assinatura_edit'),
     path('painel-admin/planos/<int:pk>/editar/', editar_plano_saas, name='saas_admin_plano_edit'),
+
+    path(
+        'painel-admin/solicitacoes/<int:pk>/aprovar/',
+        aprovar_solicitacao_plano_saas,
+        name='aprovar_solicitacao',
+    ),
+    path(
+        'painel-admin/solicitacoes/<int:pk>/recusar/',
+        recusar_solicitacao_plano_saas,
+        name='recusar_solicitacao',
+    ),
 ]

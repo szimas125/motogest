@@ -69,7 +69,9 @@ def painel_admin(request):
             total_produtos=Count('produtos', distinct=True),
         ).select_related('assinatura__plano').order_by('-criada_em')[:8],
         'planos': Plano.objects.annotate(total_clientes=Count('assinaturas')).order_by('ordem', 'preco_mensal'),
-        'solicitacoes': SolicitacaoPlano.objects.select_related('empresa', 'plano_atual', 'plano_solicitado').order_by('-criada_em')[:8],
+        'solicitacoes': SolicitacaoPlano.objects.select_related(
+            'empresa', 'plano_atual', 'plano_solicitado', 'assinatura'
+        ).order_by('-criada_em')[:20],
         'usuarios_recentes': User.objects.order_by('-date_joined')[:8],
         'eventos_recentes': EventoAssinatura.objects.select_related('assinatura__empresa')[:8],
     }
@@ -234,18 +236,22 @@ def criar_plano_saas(request):
 @superuser_required
 def aprovar_solicitacao_plano_saas(request, pk):
     solicitacao = get_object_or_404(
-        SolicitacaoPlano.objects.select_related('assinatura', 'empresa', 'plano_solicitado'),
+        SolicitacaoPlano.objects.select_related(
+            'assinatura', 'empresa', 'plano_solicitado', 'plano_atual'
+        ),
         pk=pk,
     )
     assinatura = solicitacao.assinatura
+
     if request.method == 'POST':
-        solicitacao.status = 'APROVADA'
-        solicitacao.save(update_fields=['status', 'atualizado_em'])
         aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
+        solicitacao.status = 'APLICADA'
+        solicitacao.save(update_fields=['status', 'atualizado_em'])
         messages.success(
             request,
             f'Troca para o plano {solicitacao.plano_solicitado.nome} aplicada com sucesso.'
         )
+
     return redirect('saas_admin_dashboard')
 
 
