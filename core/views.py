@@ -208,6 +208,7 @@ def equipe(request):
         'usuario__first_name', 'usuario__username'
     )
     limites = contexto_limites_empresa(empresa)
+    administrador_principal = empresa.usuarios_vinculados.filter(perfil='ADMIN').order_by('id').first()
 
     if request.method == 'POST':
         if empresa_bloqueada(empresa):
@@ -238,7 +239,13 @@ def equipe(request):
     return render(
         request,
         'team/team.html',
-        {'form': form, 'usuarios': usuarios, 'empresa': empresa, 'limites': limites},
+        {
+            'form': form,
+            'usuarios': usuarios,
+            'empresa': empresa,
+            'limites': limites,
+            'administrador_principal_id': administrador_principal.id if administrador_principal else None,
+        },
     )
 
 
@@ -250,12 +257,17 @@ def excluir_vinculo(request, pk):
         return redirect('selecionar_empresa')
 
     vinculo = get_object_or_404(VinculoUsuarioEmpresa.objects.select_related('usuario'), pk=pk, empresa=empresa)
+    administrador_principal = empresa.usuarios_vinculados.filter(perfil='ADMIN').order_by('id').first()
 
     if empresa_bloqueada(empresa):
         messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
         return redirect('plans')
 
     if request.method != 'POST':
+        return redirect('team')
+
+    if administrador_principal and vinculo.id == administrador_principal.id:
+        messages.error(request, 'Não é possível excluir o administrador principal que cadastrou a empresa.')
         return redirect('team')
 
     total_admins = empresa.usuarios_vinculados.filter(ativo=True, perfil='ADMIN').count()
@@ -309,11 +321,19 @@ def atualizar_vinculo(request, pk):
 
     vinculo = get_object_or_404(VinculoUsuarioEmpresa, pk=pk, empresa=empresa)
     form = TeamMembershipForm(request.POST or None, instance=vinculo)
+    administrador_principal = empresa.usuarios_vinculados.filter(perfil='ADMIN').order_by('id').first()
 
     if request.method == 'POST':
         if empresa_bloqueada(empresa):
             messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
             return redirect('plans')
+
+        if administrador_principal and vinculo.id == administrador_principal.id:
+            messages.error(
+                request,
+                'Não é possível alterar o status do administrador principal que cadastrou a empresa.'
+            )
+            return redirect('team')
 
         deseja_ativar = request.POST.get('ativo') in {'on', 'true', '1', 'True'}
         if deseja_ativar and not pode_ativar_usuario(empresa, vinculo):
