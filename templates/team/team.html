@@ -1,62 +1,106 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block title %}Equipe | EzStock{% endblock %}
-{% block page_title %}Equipe da empresa{% endblock %}
 {% block content %}
 <div class="row g-4">
-  <div class="col-lg-7">
-    <div class="card soft-card border-0 shadow-sm">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Usuários vinculados</h5>
-          <span class="badge text-bg-primary">{{ limites.usuarios }} / {{ limites.usuarios_limite|default:'Ilimitado' }}</span>
+  <div class="col-xl-7">
+    <div class="soft-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h3 class="mb-1">Usuários vinculados</h3>
+          <small class="text-muted">
+            Ativos: {{ limites.usuarios }} / {{ limites.usuarios_limite|default:"Sem limite" }}
+            {% if limites.usuarios_total %}
+              • Total cadastrados: {{ limites.usuarios_total }}
+            {% endif %}
+          </small>
         </div>
-        <div class="table-responsive">
-          <table class="table align-middle">
-            <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
-            <tbody>
-              {% for vinculo in usuarios %}
-              <tr>
-                <td>{{ vinculo.usuario.first_name|default:'-' }}</td>
-                <td>{{ vinculo.usuario.username }}</td>
-                <td>{{ vinculo.get_perfil_display }}</td>
-                <td>{% if vinculo.ativo %}<span class="badge text-bg-success">Ativo</span>{% else %}<span class="badge text-bg-secondary">Inativo</span>{% endif %}</td>
-                <td class="text-end">
-                  <form method="post" action="{% url 'team_update' vinculo.pk %}" class="d-inline-flex gap-2 align-items-center">{% csrf_token %}
-                    <select name="perfil" class="form-select form-select-sm">
-                      {% for value,label in vinculo.PERFIS %}<option value="{{ value }}" {% if vinculo.perfil == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
-                    </select>
-                    <div class="form-check small"><input type="checkbox" class="form-check-input" name="ativo" value="on" {% if vinculo.ativo %}checked{% endif %}></div>
-                    <button class="btn btn-sm btn-outline-primary">Salvar</button>
-                  </form>
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="5" class="text-muted">Nenhum usuário vinculado.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        <span class="badge text-bg-primary">{{ limites.usuarios_total }}/{{ limites.usuarios_limite|default:"∞" }}</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Usuário</th>
+              <th>Perfil</th>
+              <th>Status</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in usuarios %}
+            <tr>
+              <td>{{ item.usuario.get_full_name|default:item.usuario.username }}</td>
+              <td>{{ item.usuario.username }}</td>
+              <td>
+                <form method="post" action="{% url 'team_update' item.id %}" class="d-flex align-items-center gap-2">
+                  {% csrf_token %}
+                  <select name="perfil" class="form-select form-select-sm" style="min-width: 130px;">
+                    <option value="ADMIN" {% if item.perfil == 'ADMIN' %}selected{% endif %}>Administrador</option>
+                    <option value="GERENTE" {% if item.perfil == 'GERENTE' %}selected{% endif %}>Gerente</option>
+                    <option value="ATENDENTE" {% if item.perfil == 'ATENDENTE' %}selected{% endif %}>Operador</option>
+                  </select>
+              </td>
+              <td>
+                  <div class="form-check m-0">
+                    <input class="form-check-input" type="checkbox" name="ativo" value="on" {% if item.ativo %}checked{% endif %}>
+                    <label class="form-check-label">
+                      {% if item.ativo %}
+                        <span class="badge text-bg-success">Ativo</span>
+                      {% else %}
+                        <span class="badge text-bg-secondary">Inativo</span>
+                      {% endif %}
+                    </label>
+                  </div>
+              </td>
+              <td class="text-end">
+                  <div class="d-inline-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Salvar</button>
+                </form>
+                    <form method="post" action="{% url 'team_delete' item.id %}" onsubmit="return confirm('Deseja excluir este usuário da empresa?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                    </form>
+                  </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted">Nenhum usuário vinculado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
-  <div class="col-lg-5">
-    <div class="card soft-card border-0 shadow-sm">
-      <div class="card-body">
-        <h5 class="mb-3">Adicionar usuário</h5>
-        <form method="post">
-          {% csrf_token %}
-          <div class="row g-3">
-            {% for field in form %}
-            <div class="col-12">
-              <label class="form-label">{{ field.label }}</label>
-              {{ field }}
-              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>{% endif %}
-            </div>
-            {% endfor %}
-          </div>
-          <button class="btn btn-primary w-100 mt-4">Salvar usuário</button>
-        </form>
-      </div>
+
+  <div class="col-xl-5">
+    <div class="soft-card p-4">
+      <h3 class="mb-3">Adicionar usuário</h3>
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          {{ form.nome }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          {{ form.username }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          {{ form.email }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          {{ form.password }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Perfil</label>
+          {{ form.perfil }}
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Salvar usuário</button>
+      </form>
     </div>
   </div>
 </div>
