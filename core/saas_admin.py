@@ -13,6 +13,7 @@ from workshop.models import OrdemServico
 
 from .forms import AssinaturaAdminForm, EmpresaAdminCreateForm, EmpresaForm, PlanoAdminForm
 from .models import Assinatura, Empresa, EventoAssinatura, Plano, SolicitacaoPlano, VinculoUsuarioEmpresa
+from .services import aplicar_troca_plano
 
 User = get_user_model()
 
@@ -52,9 +53,15 @@ def painel_admin(request):
 
     context = {
         'cards': {
-            'empresas': empresas, 'usuarios': usuarios, 'ativas': ativas, 'testes': testes,
-            'atrasadas': atrasadas, 'bloqueadas': bloqueadas, 'mrr': mrr,
-            'contas_abertas': contas_abertas, 'ordens_mes': ordens_mes,
+            'empresas': empresas,
+            'usuarios': usuarios,
+            'ativas': ativas,
+            'testes': testes,
+            'atrasadas': atrasadas,
+            'bloqueadas': bloqueadas,
+            'mrr': mrr,
+            'contas_abertas': contas_abertas,
+            'ordens_mes': ordens_mes,
         },
         'empresas_recentes': Empresa.objects.annotate(
             total_usuarios=Count('usuarios_vinculados', distinct=True),
@@ -78,7 +85,12 @@ def saas_empresas(request):
         total_os=Count('ordens_servico', distinct=True),
     ).select_related('assinatura__plano').order_by('nome')
     if q:
-        qs = qs.filter(Q(nome__icontains=q) | Q(nome_fantasia__icontains=q) | Q(cnpj__icontains=q) | Q(email__icontains=q))
+        qs = qs.filter(
+            Q(nome__icontains=q) |
+            Q(nome_fantasia__icontains=q) |
+            Q(cnpj__icontains=q) |
+            Q(email__icontains=q)
+        )
     return render(request, 'saas_admin/empresas.html', {'empresas': qs[:100], 'q': q})
 
 
@@ -90,7 +102,16 @@ def editar_empresa_saas(request, pk):
         form.save()
         messages.success(request, 'Empresa atualizada com sucesso.')
         return redirect('saas_admin_empresas')
-    return render(request, 'saas_admin/form_page.html', {'titulo': 'Editar empresa', 'subtitulo': empresa.nome_fantasia or empresa.nome, 'form': form, 'voltar_url': reverse('saas_admin_empresas')})
+    return render(
+        request,
+        'saas_admin/form_page.html',
+        {
+            'titulo': 'Editar empresa',
+            'subtitulo': empresa.nome_fantasia or empresa.nome,
+            'form': form,
+            'voltar_url': reverse('saas_admin_empresas'),
+        },
+    )
 
 
 @superuser_required
@@ -99,7 +120,11 @@ def saas_assinaturas(request):
     qs = Assinatura.objects.select_related('empresa', 'plano', 'proximo_plano').order_by('vencimento', 'empresa__nome')
     if status:
         qs = qs.filter(status=status)
-    return render(request, 'saas_admin/assinaturas.html', {'assinaturas': qs[:100], 'status_atual': status, 'status_choices': Assinatura.STATUS_CHOICES})
+    return render(
+        request,
+        'saas_admin/assinaturas.html',
+        {'assinaturas': qs[:100], 'status_atual': status, 'status_choices': Assinatura.STATUS_CHOICES},
+    )
 
 
 @superuser_required
@@ -110,15 +135,32 @@ def editar_assinatura_saas(request, pk):
         form.save()
         messages.success(request, 'Assinatura atualizada com sucesso.')
         return redirect('saas_admin_assinaturas')
-    return render(request, 'saas_admin/form_page.html', {'titulo': 'Editar assinatura', 'subtitulo': assinatura.empresa.nome_fantasia or assinatura.empresa.nome, 'form': form, 'voltar_url': reverse('saas_admin_assinaturas')})
+    return render(
+        request,
+        'saas_admin/form_page.html',
+        {
+            'titulo': 'Editar assinatura',
+            'subtitulo': assinatura.empresa.nome_fantasia or assinatura.empresa.nome,
+            'form': form,
+            'voltar_url': reverse('saas_admin_assinaturas'),
+        },
+    )
 
 
 @superuser_required
 def saas_usuarios(request):
     q = request.GET.get('q', '').strip()
-    vinculos = VinculoUsuarioEmpresa.objects.select_related('usuario', 'empresa').order_by('empresa__nome', 'usuario__first_name', 'usuario__username')
+    vinculos = VinculoUsuarioEmpresa.objects.select_related('usuario', 'empresa').order_by(
+        'empresa__nome', 'usuario__first_name', 'usuario__username'
+    )
     if q:
-        vinculos = vinculos.filter(Q(usuario__username__icontains=q) | Q(usuario__first_name__icontains=q) | Q(usuario__email__icontains=q) | Q(empresa__nome__icontains=q) | Q(empresa__nome_fantasia__icontains=q))
+        vinculos = vinculos.filter(
+            Q(usuario__username__icontains=q) |
+            Q(usuario__first_name__icontains=q) |
+            Q(usuario__email__icontains=q) |
+            Q(empresa__nome__icontains=q) |
+            Q(empresa__nome_fantasia__icontains=q)
+        )
     return render(request, 'saas_admin/usuarios.html', {'vinculos': vinculos[:150], 'q': q})
 
 
@@ -139,7 +181,16 @@ def editar_plano_saas(request, pk):
         form.save()
         messages.success(request, 'Plano atualizado com sucesso.')
         return redirect('saas_admin_planos')
-    return render(request, 'saas_admin/form_page.html', {'titulo': 'Editar plano', 'subtitulo': plano.nome, 'form': form, 'voltar_url': reverse('saas_admin_planos')})
+    return render(
+        request,
+        'saas_admin/form_page.html',
+        {
+            'titulo': 'Editar plano',
+            'subtitulo': plano.nome,
+            'form': form,
+            'voltar_url': reverse('saas_admin_planos'),
+        },
+    )
 
 
 @superuser_required
@@ -149,7 +200,16 @@ def criar_empresa_saas(request):
         empresa = form.save()
         messages.success(request, 'Empresa criada com sucesso.')
         return redirect('saas_admin_empresa_edit', pk=empresa.pk)
-    return render(request, 'saas_admin/form_page.html', {'titulo': 'Nova empresa', 'subtitulo': 'Cadastre uma nova empresa no SaaS', 'form': form, 'voltar_url': reverse('saas_admin_empresas')})
+    return render(
+        request,
+        'saas_admin/form_page.html',
+        {
+            'titulo': 'Nova empresa',
+            'subtitulo': 'Cadastre uma nova empresa no SaaS',
+            'form': form,
+            'voltar_url': reverse('saas_admin_empresas'),
+        },
+    )
 
 
 @superuser_required
@@ -159,4 +219,47 @@ def criar_plano_saas(request):
         plano = form.save()
         messages.success(request, 'Plano criado com sucesso.')
         return redirect('saas_admin_plano_edit', pk=plano.pk)
-    return render(request, 'saas_admin/form_page.html', {'titulo': 'Novo plano', 'subtitulo': 'Cadastre um novo plano do EzStock', 'form': form, 'voltar_url': reverse('saas_admin_planos')})
+    return render(
+        request,
+        'saas_admin/form_page.html',
+        {
+            'titulo': 'Novo plano',
+            'subtitulo': 'Cadastre um novo plano do EzStock',
+            'form': form,
+            'voltar_url': reverse('saas_admin_planos'),
+        },
+    )
+
+
+@superuser_required
+def aprovar_solicitacao_plano_saas(request, pk):
+    solicitacao = get_object_or_404(
+        SolicitacaoPlano.objects.select_related('assinatura', 'empresa', 'plano_solicitado'),
+        pk=pk,
+    )
+    assinatura = solicitacao.assinatura
+    if request.method == 'POST':
+        solicitacao.status = 'APROVADA'
+        solicitacao.save(update_fields=['status', 'atualizado_em'])
+        aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
+        messages.success(
+            request,
+            f'Troca para o plano {solicitacao.plano_solicitado.nome} aplicada com sucesso.'
+        )
+    return redirect('saas_admin_dashboard')
+
+
+@superuser_required
+def recusar_solicitacao_plano_saas(request, pk):
+    solicitacao = get_object_or_404(
+        SolicitacaoPlano.objects.select_related('assinatura', 'empresa', 'plano_solicitado'),
+        pk=pk,
+    )
+    if request.method == 'POST':
+        solicitacao.status = 'RECUSADA'
+        solicitacao.save(update_fields=['status', 'atualizado_em'])
+        assinatura = solicitacao.assinatura
+        assinatura.proximo_plano = None
+        assinatura.save(update_fields=['proximo_plano', 'atualizado_em'])
+        messages.success(request, 'Solicitação recusada com sucesso.')
+    return redirect('saas_admin_dashboard')

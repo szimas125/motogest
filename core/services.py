@@ -1,11 +1,14 @@
 from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.text import slugify
+
 from inventory.models import Produto
 from workshop.models import OrdemServico
+
 from .models import Assinatura, ConfiguracaoEmpresa, Empresa, Plano, SolicitacaoPlano, VinculoUsuarioEmpresa
 
 User = get_user_model()
@@ -14,33 +17,56 @@ User = get_user_model()
 def obter_vinculos_usuario(usuario):
     if not usuario.is_authenticated:
         return VinculoUsuarioEmpresa.objects.none()
-    return VinculoUsuarioEmpresa.objects.select_related('empresa', 'empresa__assinatura', 'empresa__assinatura__plano').filter(
-        usuario=usuario, ativo=True, empresa__ativa=True
+    return VinculoUsuarioEmpresa.objects.select_related(
+        'empresa', 'empresa__assinatura', 'empresa__assinatura__plano'
+    ).filter(
+        usuario=usuario,
+        ativo=True,
+        empresa__ativa=True,
     )
+
+
+def _aplicar_solicitacao_aprovada_pendente(assinatura):
+    if not assinatura:
+        return None
+
+    solicitacao = assinatura.solicitacoes.filter(status='APROVADA').select_related('plano_solicitado').order_by('-criada_em').first()
+    if not solicitacao:
+        return assinatura
+
+    if solicitacao.plano_solicitado_id and assinatura.plano_id != solicitacao.plano_solicitado_id:
+        aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
+    assinatura.proximo_plano = None
+    assinatura.save(update_fields=['proximo_plano', 'atualizado_em'])
+    return assinatura
 
 
 def obter_empresa_atual(request):
     if not request.user.is_authenticated:
         return None
+
     empresa_id = request.session.get('empresa_id')
     vinculos = obter_vinculos_usuario(request.user)
+
     if empresa_id:
         vinculo = vinculos.filter(empresa_id=empresa_id).first()
         if vinculo:
             assinatura = getattr(vinculo.empresa, 'assinatura', None)
             if assinatura:
                 assinatura.sincronizar_status()
+                _aplicar_solicitacao_aprovada_pendente(assinatura)
             return vinculo.empresa
+
     primeiro = vinculos.first()
     if primeiro:
         request.session['empresa_id'] = primeiro.empresa_id
         assinatura = getattr(primeiro.empresa, 'assinatura', None)
         if assinatura:
             assinatura.sincronizar_status()
+            _aplicar_solicitacao_aprovada_pendente(assinatura)
         return primeiro.empresa
+
     return None
-
-
 
 
 def obter_perfil_usuario_empresa(usuario, empresa):
@@ -49,11 +75,28 @@ def obter_perfil_usuario_empresa(usuario, empresa):
     vinculo = VinculoUsuarioEmpresa.objects.filter(usuario=usuario, empresa=empresa, ativo=True).first()
     return vinculo.perfil if vinculo else None
 
+
 def empresa_bloqueada(empresa):
     assinatura = getattr(empresa, 'assinatura', None)
     if not assinatura:
         return True
+
     assinatura.sincronizar_status()
+    _aplicar_solicitacao_aprovada_pendente(assinatura)
+
+    hoje = timezone.localdate()
+    status = (assinatura.status or '').upper()
+    mp_status = (assinatura.mercado_pago_status or '').lower()
+
+    if status == 'TESTE':
+        return not bool(assinatura.vencimento and assinatura.vencimento >= hoje)
+
+    if status in {'ATRASADA', 'BLOQUEADA', 'CANCELADA'}:
+        return True
+
+    if mp_status in {'pending', 'paused', 'rejected', 'expired', 'cancelled', 'cancelled_by_user'}:
+        return True
+
     return not assinatura.esta_ativa_para_uso
 
 
@@ -76,7 +119,11 @@ def pode_criar_os(empresa):
     if limite is None:
         return True
     hoje = timezone.localdate()
-    total = OrdemServico.objects.filter(empresa=empresa, data_abertura__month=hoje.month, data_abertura__year=hoje.year).count()
+    total = OrdemServico.objects.filter(
+        empresa=empresa,
+        data_abertura__month=hoje.month,
+        data_abertura__year=hoje.year,
+    ).count()
     return total < limite
 
 
@@ -97,8 +144,20 @@ def criar_empresa_com_trial(*, nome_responsavel, username, email, password, nome
     while Empresa.objects.filter(slug=slug).exists():
         slug = f'{base_slug}-{i}'
         i += 1
-    user = User.objects.create_user(username=username, email=email, password=password, first_name=nome_responsavel)
-    empresa = Empresa.objects.create(nome=nome_empresa, nome_fantasia=nome_empresa, slug=slug, telefone=telefone, email=email)
+
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        first_name=nome_responsavel,
+    )
+    empresa = Empresa.objects.create(
+        nome=nome_empresa,
+        nome_fantasia=nome_empresa,
+        slug=slug,
+        telefone=telefone,
+        email=email,
+    )
     assinatura = Assinatura.objects.create(empresa=empresa, plano=plano)
     assinatura.iniciar_teste()
     assinatura.save()
@@ -137,7 +196,11 @@ def contexto_limites_empresa(empresa):
     assinatura = getattr(empresa, 'assinatura', None)
     plano = getattr(assinatura, 'plano', None)
     hoje = timezone.localdate()
-    os_mes = OrdemServico.objects.filter(empresa=empresa, data_abertura__month=hoje.month, data_abertura__year=hoje.year).count()
+    os_mes = OrdemServico.objects.filter(
+        empresa=empresa,
+        data_abertura__month=hoje.month,
+        data_abertura__year=hoje.year,
+    ).count()
     return {
         'usuarios': empresa.usuarios_vinculados.filter(ativo=True).count(),
         'usuarios_limite': getattr(plano, 'limite_usuarios', None),
