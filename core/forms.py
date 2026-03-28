@@ -13,10 +13,6 @@ from .models import (
 User = get_user_model()
 
 
-# ================================
-# ONBOARDING / USUÁRIO
-# ================================
-
 class OnboardingForm(forms.Form):
     nome_responsavel = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control'}))
     nome_empresa = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control'}))
@@ -53,10 +49,6 @@ class TeamUserForm(forms.Form):
         return username
 
 
-# ================================
-# EMPRESA
-# ================================
-
 class EmpresaForm(forms.ModelForm):
     class Meta:
         model = Empresa
@@ -75,24 +67,14 @@ class TeamMembershipForm(forms.ModelForm):
         fields = ['perfil', 'ativo']
 
 
-# ================================
-# PAGAMENTO (MERCADO PAGO)
-# ================================
-
 class BillingCardTokenForm(forms.Form):
     card_token = forms.CharField(widget=forms.HiddenInput())
     payment_method_id = forms.CharField(required=False, widget=forms.HiddenInput())
     issuer_id = forms.CharField(required=False, widget=forms.HiddenInput())
     installments = forms.IntegerField(required=False, widget=forms.HiddenInput())
-
-    # 🔥 CAMPOS QUE RESOLVEM SEU PROBLEMA
     card_last_four = forms.CharField(required=False, max_length=4, widget=forms.HiddenInput())
     card_brand = forms.CharField(required=False, max_length=40, widget=forms.HiddenInput())
 
-
-# ================================
-# ADMIN (SAAS)
-# ================================
 
 class AssinaturaAdminForm(forms.ModelForm):
     class Meta:
