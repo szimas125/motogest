@@ -57,6 +57,14 @@ def obter_perfil_usuario_empresa(usuario, empresa):
     return vinculo.perfil if vinculo else None
 
 
+def assinatura_cancelada(empresa):
+    assinatura = getattr(empresa, 'assinatura', None)
+    if not assinatura:
+        return False
+    assinatura.sincronizar_status()
+    return (assinatura.status or '').upper() == 'CANCELADA'
+
+
 def empresa_bloqueada(empresa):
     assinatura = getattr(empresa, 'assinatura', None)
     if not assinatura:

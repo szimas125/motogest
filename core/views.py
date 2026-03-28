@@ -32,12 +32,12 @@ from .models import (
     Empresa,
     EventoAssinatura,
     Plano,
-    SolicitacaoPlano,
     VinculoUsuarioEmpresa,
 )
 from .permissions import require_company_profile
 from .services import (
     aplicar_troca_plano,
+    assinatura_cancelada,
     contexto_limites_empresa,
     criar_empresa_com_trial,
     empresa_bloqueada,
@@ -49,6 +49,16 @@ from .services import (
 )
 
 User = get_user_model()
+
+
+def _redirecionar_se_cancelada(request, empresa, destino='plans'):
+    if empresa and assinatura_cancelada(empresa):
+        messages.warning(
+            request,
+            'Sua assinatura está cancelada. Para continuar, escolha um novo plano para reativar a empresa.'
+        )
+        return redirect(destino)
+    return None
 
 
 def pagina_inicial(request):
@@ -107,6 +117,10 @@ def dashboard(request):
     if not empresa:
         return redirect('selecionar_empresa')
 
+    bloqueio = _redirecionar_se_cancelada(request, empresa)
+    if bloqueio:
+        return bloqueio
+
     assinatura = getattr(empresa, 'assinatura', None)
     sincronizar_contas_empresa(empresa)
     ordens = OrdemServico.objects.filter(empresa=empresa)
@@ -154,12 +168,14 @@ def planos_empresa(request):
     limites = contexto_limites_empresa(empresa)
     planos = Plano.objects.filter(ativo=True, exibir_no_site=True)
     solicitacoes = empresa.solicitacoes_plano.select_related('plano_solicitado')[:10]
+    plano_atual = None if (assinatura and (assinatura.status or '').upper() == 'CANCELADA') else getattr(assinatura, 'plano', None)
     return render(
         request,
         'core/plans.html',
         {
             'empresa': empresa,
             'assinatura': assinatura,
+            'plano_atual': plano_atual,
             'planos': planos,
             'solicitacoes': solicitacoes,
             'limites': limites,
@@ -178,9 +194,17 @@ def trocar_plano(request, plano_id):
     novo_plano = get_object_or_404(Plano, pk=plano_id, ativo=True)
 
     if request.method == 'POST':
-        if novo_plano.id == assinatura.plano_id:
+        if assinatura.status != 'CANCELADA' and novo_plano.id == assinatura.plano_id:
             messages.info(request, 'Este plano já está ativo para sua empresa.')
             return redirect('plans')
+
+        if assinatura.status == 'CANCELADA':
+            aplicar_troca_plano(assinatura, novo_plano, renovar_ciclo=False)
+            messages.success(request, f'Assinatura reativada com o plano {novo_plano.nome}.')
+            if settings.MERCADOPAGO_ENABLED and not assinatura.cartao_cadastrado_em:
+                messages.info(request, 'Agora cadastre um cartão para reativar a cobrança automática.')
+                return redirect('billing_checkout')
+            return redirect('billing_status')
 
         if novo_plano.preco_mensal >= assinatura.plano.preco_mensal:
             aplicar_troca_plano(assinatura, novo_plano)
@@ -261,6 +285,10 @@ def equipe(request):
     if not empresa:
         return redirect('selecionar_empresa')
 
+    bloqueio = _redirecionar_se_cancelada(request, empresa)
+    if bloqueio:
+        return bloqueio
+
     form = TeamUserForm(request.POST or None)
     usuarios = empresa.usuarios_vinculados.select_related('usuario').order_by(
         'usuario__first_name', 'usuario__username'
@@ -314,6 +342,10 @@ def excluir_vinculo(request, pk):
     if not empresa:
         return redirect('selecionar_empresa')
 
+    bloqueio = _redirecionar_se_cancelada(request, empresa)
+    if bloqueio:
+        return bloqueio
+
     vinculo = get_object_or_404(VinculoUsuarioEmpresa.objects.select_related('usuario'), pk=pk, empresa=empresa)
     administrador_principal = empresa.usuarios_vinculados.filter(perfil='ADMIN').order_by('id').first()
 
@@ -346,6 +378,10 @@ def editar_empresa(request):
     if not empresa:
         return redirect('selecionar_empresa')
 
+    bloqueio = _redirecionar_se_cancelada(request, empresa)
+    if bloqueio:
+        return bloqueio
+
     configuracao = getattr(empresa, 'configuracao', None)
     form_empresa = EmpresaForm(request.POST or None, instance=empresa, prefix='empresa')
     form_config = ConfiguracaoEmpresaForm(request.POST or None, instance=configuracao, prefix='config')
@@ -376,6 +412,10 @@ def atualizar_vinculo(request, pk):
     empresa = obter_empresa_atual(request)
     if not empresa:
         return redirect('selecionar_empresa')
+
+    bloqueio = _redirecionar_se_cancelada(request, empresa)
+    if bloqueio:
+        return bloqueio
 
     vinculo = get_object_or_404(VinculoUsuarioEmpresa, pk=pk, empresa=empresa)
     form = TeamMembershipForm(request.POST or None, instance=vinculo)
@@ -448,6 +488,10 @@ def billing_checkout(request):
     empresa = obter_empresa_atual(request)
     if not empresa:
         return redirect('selecionar_empresa')
+
+    bloqueio = _redirecionar_se_cancelada(request, empresa, destino='billing_status')
+    if bloqueio:
+        return bloqueio
 
     assinatura = empresa.assinatura
     form = BillingCardTokenForm(request.POST or None)
@@ -563,11 +607,10 @@ def billing_status(request):
 
     assinatura = empresa.assinatura
     assinatura.sincronizar_status()
-    eventos = assinatura.eventos.all()[:20]
     return render(
         request,
         'core/billing_status.html',
-        {'empresa': empresa, 'assinatura': assinatura, 'eventos': eventos},
+        {'empresa': empresa, 'assinatura': assinatura, 'eventos': assinatura.eventos.all()[:20]},
     )
 
 
