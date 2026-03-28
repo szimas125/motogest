@@ -1,142 +1,134 @@
-{% extends 'saas_admin/base.html' %}
-{% load br_filters %}
-{% block title %}Painel administrativo | EzStock{% endblock %}
-{% block page_title %}Painel administrativo{% endblock %}
-{% block content %}
-<div class="row g-3 mb-4">
-  <div class="col-md-6 col-xl-3"><div class="metric-card"><span>Empresas</span><h2>{{ cards.empresas }}</h2></div></div>
-  <div class="col-md-6 col-xl-3"><div class="metric-card"><span>Usuários</span><h2>{{ cards.usuarios }}</h2></div></div>
-  <div class="col-md-6 col-xl-3"><div class="metric-card"><span>Assinaturas ativas</span><h2>{{ cards.ativas }}</h2></div></div>
-  <div class="col-md-6 col-xl-3"><div class="metric-card"><span>Em teste grátis</span><h2>{{ cards.testes }}</h2></div></div>
-  <div class="col-md-6 col-xl-4"><div class="metric-card"><span>Receita mensal estimada</span><h2>{{ cards.mrr|brl }}</h2></div></div>
-  <div class="col-md-6 col-xl-4"><div class="metric-card"><span>Contas em aberto nas empresas</span><h2>{{ cards.contas_abertas|brl }}</h2></div></div>
-  <div class="col-md-6 col-xl-4"><div class="metric-card"><span>Ordens registradas neste mês</span><h2>{{ cards.ordens_mes }}</h2></div></div>
-</div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Painel Admin | EzStock</title>
+    <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f7fb;color:#162033;margin:0}
+        .wrap{max-width:1200px;margin:0 auto;padding:24px}
+        h1{margin:0 0 8px}
+        .sub{color:#64748b;margin-bottom:24px}
+        .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+        .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,.04)}
+        .label{font-size:13px;color:#64748b;margin-bottom:8px}
+        .value{font-size:28px;font-weight:700}
+        .section{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-bottom:24px}
+        .section h2{margin:0 0 16px;font-size:20px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:12px 10px;border-bottom:1px solid #edf2f7;text-align:left;font-size:14px;vertical-align:top}
+        th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
+        .actions{display:flex;gap:8px;flex-wrap:wrap}
+        .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+        .btn-ok{background:#16a34a;color:#fff}
+        .btn-no{background:#dc2626;color:#fff}
+        .tag{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:700}
+        .muted{color:#64748b}
+        @media (max-width: 960px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width: 640px){.grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>Painel administrativo do EzStock</h1>
+        <div class="sub">Visão geral do SaaS e aprovação de solicitações de plano.</div>
 
-<div class="row g-4">
-  <div class="col-xl-8">
-    <div class="soft-card p-4 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h5 class="mb-1">Empresas recentes</h5>
-          <small class="text-muted">Resumo operacional das últimas empresas cadastradas</small>
+        {% if messages %}
+            <div class="section">
+                {% for message in messages %}
+                    <div>{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="grid">
+            <div class="card"><div class="label">Empresas</div><div class="value">{{ cards.empresas }}</div></div>
+            <div class="card"><div class="label">Usuários</div><div class="value">{{ cards.usuarios }}</div></div>
+            <div class="card"><div class="label">Assinaturas ativas</div><div class="value">{{ cards.ativas }}</div></div>
+            <div class="card"><div class="label">Em teste</div><div class="value">{{ cards.testes }}</div></div>
+            <div class="card"><div class="label">Atrasadas</div><div class="value">{{ cards.atrasadas }}</div></div>
+            <div class="card"><div class="label">Bloqueadas</div><div class="value">{{ cards.bloqueadas }}</div></div>
+            <div class="card"><div class="label">MRR</div><div class="value">R$ {{ cards.mrr }}</div></div>
+            <div class="card"><div class="label">Ordens no mês</div><div class="value">{{ cards.ordens_mes }}</div></div>
         </div>
-        <a href="{% url 'saas_admin_empresas' %}" class="btn btn-outline-primary btn-sm">Ver todas</a>
-      </div>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead><tr><th>Empresa</th><th>Plano</th><th>Usuários</th><th>Produtos</th><th>OS</th><th></th></tr></thead>
-          <tbody>
-            {% for empresa in empresas_recentes %}
-            <tr>
-              <td><strong>{{ empresa.nome_fantasia|default:empresa.nome }}</strong><div class="small text-muted">{{ empresa.cidade }}{% if empresa.estado %}/{{ empresa.estado }}{% endif %}</div></td>
-              <td>{% if empresa.assinatura %}{{ empresa.assinatura.plano.nome }}<div class="small text-muted">{{ empresa.assinatura.get_status_display }}</div>{% else %}<span class="text-muted">Sem assinatura</span>{% endif %}</td>
-              <td>{{ empresa.total_usuarios }}</td>
-              <td>{{ empresa.total_produtos }}</td>
-              <td>{{ empresa.total_os }}</td>
-              <td><a href="{% url 'saas_admin_empresa_edit' empresa.id %}" class="btn btn-sm btn-outline-dark">Abrir</a></td>
-            </tr>
-            {% empty %}<tr><td colspan="6" class="text-muted">Nenhuma empresa cadastrada ainda.</td></tr>{% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-xl-4">
-    <div class="soft-card p-4 mb-4">
-      <h5 class="mb-3">Saúde da base</h5>
-      <div class="d-flex flex-column gap-3">
-        <div class="hero-list-item text-dark bg-light"><span>Assinaturas atrasadas</span><strong>{{ cards.atrasadas }}</strong></div>
-        <div class="hero-list-item text-dark bg-light"><span>Assinaturas bloqueadas</span><strong>{{ cards.bloqueadas }}</strong></div>
-        <div class="hero-list-item text-dark bg-light"><span>Planos cadastrados</span><strong>{{ planos|length }}</strong></div>
-      </div>
-    </div>
-    <div class="soft-card p-4">
-      <h5 class="mb-3">Usuários recentes</h5>
-      <div class="d-flex flex-column gap-3">
-        {% for usuario in usuarios_recentes %}
-        <div class="d-flex justify-content-between align-items-center border-bottom pb-2">
-          <div><strong>{{ usuario.get_full_name|default:usuario.username }}</strong><div class="small text-muted">{{ usuario.email|default:'Sem e-mail' }}</div></div>
-          <a href="/admin/auth/user/{{ usuario.id }}/change/" class="btn btn-sm btn-outline-primary">Ver</a>
+
+        <div class="section">
+            <h2>Solicitações de plano</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Empresa</th>
+                        <th>Plano atual</th>
+                        <th>Plano solicitado</th>
+                        <th>Status</th>
+                        <th>Criada em</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for solicitacao in solicitacoes %}
+                        <tr>
+                            <td>
+                                <strong>{{ solicitacao.empresa.nome_fantasia|default:solicitacao.empresa.nome }}</strong><br>
+                                <span class="muted">Assinatura #{{ solicitacao.assinatura.id }}</span>
+                            </td>
+                            <td>{{ solicitacao.plano_atual.nome }}</td>
+                            <td>{{ solicitacao.plano_solicitado.nome }}</td>
+                            <td><span class="tag">{{ solicitacao.status }}</span></td>
+                            <td>{{ solicitacao.criada_em|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if solicitacao.status == 'ABERTA' %}
+                                    <div class="actions">
+                                        <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-ok">Aprovar</button>
+                                        </form>
+                                        <form method="post" action="{% url 'recusar_solicitacao' solicitacao.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-no">Recusar</button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <span class="muted">Sem ações</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="muted">Nenhuma solicitação encontrada.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% empty %}<div class="text-muted">Sem usuários cadastrados.</div>{% endfor %}
-      </div>
-    </div>
-  </div>
-</div>
 
-<div class="row g-4 mt-1">
-  <div class="col-xl-6">
-    <div class="soft-card p-4 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div><h5 class="mb-1">Planos do sistema</h5><small class="text-muted">Distribuição das assinaturas por plano</small></div>
-        <a href="{% url 'saas_admin_planos' %}" class="btn btn-outline-primary btn-sm">Gerenciar</a>
-      </div>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead><tr><th>Plano</th><th>Preço</th><th>Clientes</th><th></th></tr></thead>
-          <tbody>
-          {% for plano in planos %}
-            <tr>
-              <td><strong>{{ plano.nome }}</strong>{% if plano.destaque %}<span class="badge text-bg-primary ms-2">Destaque</span>{% endif %}</td>
-              <td>{{ plano.preco_mensal|brl }}</td>
-              <td>{{ plano.total_clientes }}</td>
-              <td><a href="{% url 'saas_admin_plano_edit' plano.id %}" class="btn btn-sm btn-outline-dark">Editar</a></td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
+        <div class="section">
+            <h2>Empresas recentes</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Empresa</th>
+                        <th>Plano</th>
+                        <th>Usuários</th>
+                        <th>Produtos</th>
+                        <th>Ordens</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for empresa in empresas_recentes %}
+                        <tr>
+                            <td>{{ empresa.nome_fantasia|default:empresa.nome }}</td>
+                            <td>{{ empresa.assinatura.plano.nome }}</td>
+                            <td>{{ empresa.total_usuarios }}</td>
+                            <td>{{ empresa.total_produtos }}</td>
+                            <td>{{ empresa.total_os }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="muted">Nenhuma empresa encontrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
-  <div class="col-xl-6">
-    <div class="soft-card p-4 h-100">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div><h5 class="mb-1">Solicitações de plano</h5><small class="text-muted">Mudanças solicitadas pelas empresas</small></div>
-        <a href="/admin/core/solicitacaoplano/" class="btn btn-outline-primary btn-sm">Abrir lista</a>
-      </div>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead><tr><th>Empresa</th><th>Mudança</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-          {% for item in solicitacoes %}
-            <tr>
-              <td>{{ item.empresa.nome_fantasia|default:item.empresa.nome }}</td>
-              <td>{{ item.plano_atual.nome }} → {{ item.plano_solicitado.nome }}</td>
-              <td><span class="badge text-bg-light">{{ item.get_status_display }}</span></td>
-              <td><a href="/admin/core/solicitacaoplano/{{ item.id }}/change/" class="btn btn-sm btn-outline-dark">Abrir</a></td>
-            </tr>
-          {% empty %}<tr><td colspan="4" class="text-muted">Nenhuma solicitação encontrada.</td></tr>{% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
-
-<div class="card border-0 shadow-sm soft-card mt-4">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="mb-0">Últimos eventos de assinatura</h5>
-      <span class="badge text-bg-light">auditoria</span>
-    </div>
-    <div class="table-responsive">
-      <table class="table align-middle mb-0">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Evento</th><th>Origem</th></tr></thead>
-        <tbody>
-        {% for evento in eventos_recentes %}
-          <tr>
-            <td>{{ evento.criado_em|date:'d/m/Y H:i' }}</td>
-            <td>{{ evento.assinatura.empresa.nome_fantasia|default:evento.assinatura.empresa.nome }}</td>
-            <td>{{ evento.tipo }}</td>
-            <td>{{ evento.origem }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="4" class="text-muted">Nenhum evento de assinatura registrado ainda.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+</body>
+</html>
