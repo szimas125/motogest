@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q, Sum
+from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -51,9 +51,20 @@ def painel_admin(request):
     contas_abertas = ContaReceber.objects.exclude(status__in=['PAGA', 'CANCELADA']).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
     ordens_mes = OrdemServico.objects.filter(criado_em__year=hoje.year, criado_em__month=hoje.month).count()
 
-    solicitacoes = SolicitacaoPlano.objects.select_related(
-        'empresa', 'plano_atual', 'plano_solicitado', 'assinatura'
-    ).order_by('-criada_em')[:20]
+    solicitacoes = (
+        SolicitacaoPlano.objects.select_related('empresa', 'plano_atual', 'plano_solicitado', 'assinatura')
+        .annotate(
+            prioridade=Case(
+                When(status='ABERTA', then=Value(0)),
+                When(status='APROVADA', then=Value(1)),
+                When(status='APLICADA', then=Value(2)),
+                When(status='RECUSADA', then=Value(3)),
+                default=Value(9),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by('prioridade', '-criada_em')[:20]
+    )
 
     context = {
         'cards': {
@@ -246,10 +257,8 @@ def aprovar_solicitacao_plano_saas(request, pk):
     assinatura = solicitacao.assinatura
 
     if request.method == 'POST':
-        # idempotente: se ainda não foi aplicada, aplica agora
         if assinatura.plano_id != solicitacao.plano_solicitado_id:
             aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
-
         solicitacao.status = 'APLICADA'
         solicitacao.save(update_fields=['status', 'atualizado_em'])
         messages.success(
