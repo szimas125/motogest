@@ -44,6 +44,7 @@ from .services import (
     obter_empresa_atual,
     obter_vinculos_usuario,
     pode_adicionar_usuario,
+    pode_ativar_usuario,
     solicitar_troca_plano,
 )
 
@@ -213,7 +214,10 @@ def equipe(request):
             messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para adicionar novos usuários.')
             return redirect('plans')
         if not pode_adicionar_usuario(empresa):
-            messages.error(request, 'Você atingiu o limite de usuários do seu plano.')
+            messages.error(
+                request,
+                'Você atingiu o limite de usuários do seu plano. Para adicionar outro usuário, faça upgrade ou exclua um vínculo existente.'
+            )
             return redirect('plans')
         if form.is_valid():
             user = User.objects.create_user(
@@ -226,6 +230,7 @@ def equipe(request):
                 usuario=user,
                 empresa=empresa,
                 perfil=form.cleaned_data['perfil'],
+                ativo=True,
             )
             messages.success(request, 'Usuário adicionado com sucesso.')
             return redirect('team')
@@ -282,6 +287,15 @@ def atualizar_vinculo(request, pk):
         if empresa_bloqueada(empresa):
             messages.error(request, 'Sua assinatura está bloqueada. Regularize o plano para continuar.')
             return redirect('plans')
+
+        deseja_ativar = request.POST.get('ativo') in {'on', 'true', '1', 'True'}
+        if deseja_ativar and not pode_ativar_usuario(empresa, vinculo):
+            messages.error(
+                request,
+                'Você atingiu o limite de usuários ativos do seu plano. Faça upgrade ou desative outro usuário antes de ativar este.'
+            )
+            return redirect('team')
+
         if form.is_valid():
             form.save()
             messages.success(request, 'Vínculo atualizado com sucesso.')
@@ -345,13 +359,6 @@ def billing_checkout(request):
                 )
                 card_brand = _formatar_bandeira(raw_brand)
 
-                print('FORM CLEANED DATA:', form.cleaned_data)
-                print('POST CARD DATA:', {
-                    'card_last_four': request.POST.get('card_last_four'),
-                    'card_brand': request.POST.get('card_brand'),
-                    'payment_method_id': request.POST.get('payment_method_id'),
-                })
-
                 service = MercadoPagoService()
                 if assinatura.mercado_pago_preapproval_id:
                     service.atualizar_cartao_assinatura(
@@ -368,9 +375,6 @@ def billing_checkout(request):
                         payment_method_id=form.cleaned_data.get('payment_method_id', ''),
                         installments=form.cleaned_data.get('installments') or 1,
                     )
-
-                print('\n======= RESPOSTA FINAL MP =======')
-                print(response)
 
                 if not response or not response.get('id'):
                     registrar_evento_assinatura(
@@ -402,8 +406,6 @@ def billing_checkout(request):
                 if campos_para_salvar:
                     assinatura.save(update_fields=campos_para_salvar + ['atualizado_em'])
 
-                print('SALVANDO CARTAO:', assinatura.cartao_bandeira, assinatura.cartao_ultimos_digitos)
-
                 registrar_evento_assinatura(
                     assinatura,
                     'cartao_cadastrado',
@@ -420,8 +422,6 @@ def billing_checkout(request):
             except MercadoPagoConfigError as exc:
                 messages.error(request, str(exc))
             except Exception as exc:
-                print('\nERRO NO CHECKOUT:')
-                print(exc)
                 registrar_evento_assinatura(
                     assinatura,
                     'erro_checkout',

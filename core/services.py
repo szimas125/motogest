@@ -80,6 +80,14 @@ def empresa_bloqueada(empresa):
     return not assinatura.esta_ativa_para_uso
 
 
+def total_usuarios_empresa(empresa):
+    return empresa.usuarios_vinculados.count()
+
+
+def total_usuarios_ativos_empresa(empresa):
+    return empresa.usuarios_vinculados.filter(ativo=True).count()
+
+
 def pode_adicionar_usuario(empresa):
     assinatura = getattr(empresa, 'assinatura', None)
     if not assinatura:
@@ -87,8 +95,21 @@ def pode_adicionar_usuario(empresa):
     limite = assinatura.plano.limite_usuarios
     if limite is None:
         return True
-    total = empresa.usuarios_vinculados.filter(ativo=True).count()
-    return total < limite
+    return total_usuarios_empresa(empresa) < limite
+
+
+def pode_ativar_usuario(empresa, vinculo_atual=None):
+    assinatura = getattr(empresa, 'assinatura', None)
+    if not assinatura:
+        return False
+    limite = assinatura.plano.limite_usuarios
+    if limite is None:
+        return True
+
+    ativos = total_usuarios_ativos_empresa(empresa)
+    if vinculo_atual and vinculo_atual.ativo:
+        return True
+    return ativos < limite
 
 
 def pode_criar_os(empresa):
@@ -169,7 +190,6 @@ def aplicar_troca_plano(assinatura, novo_plano, renovar_ciclo=True):
         assinatura.vencimento = timezone.localdate() + timedelta(days=30)
     assinatura.save()
 
-    # Fecha solicitações antigas relacionadas a esta assinatura.
     assinatura.solicitacoes.filter(status='ABERTA').update(status='APROVADA')
     assinatura.solicitacoes.filter(status='APROVADA', plano_solicitado=novo_plano).update(status='APLICADA')
 
@@ -186,7 +206,8 @@ def contexto_limites_empresa(empresa):
         data_abertura__year=hoje.year,
     ).count()
     return {
-        'usuarios': empresa.usuarios_vinculados.filter(ativo=True).count(),
+        'usuarios': total_usuarios_ativos_empresa(empresa),
+        'usuarios_total': total_usuarios_empresa(empresa),
         'usuarios_limite': getattr(plano, 'limite_usuarios', None),
         'produtos': Produto.objects.filter(empresa=empresa).count(),
         'produtos_limite': getattr(plano, 'limite_produtos', None),
