@@ -31,20 +31,31 @@
           <tbody>
             {% for item in usuarios %}
             <tr>
-              <td>{{ item.usuario.get_full_name|default:item.usuario.username }}</td>
+              <td>
+                {{ item.usuario.get_full_name|default:item.usuario.username }}
+                {% if administrador_principal_id == item.id %}
+                  <div class="small text-muted">Administrador principal</div>
+                {% endif %}
+              </td>
               <td>{{ item.usuario.username }}</td>
               <td>
                 <form method="post" action="{% url 'team_update' item.id %}" class="d-flex align-items-center gap-2">
                   {% csrf_token %}
-                  <select name="perfil" class="form-select form-select-sm" style="min-width: 130px;">
+                  <select name="perfil" class="form-select form-select-sm" style="min-width: 130px;" {% if administrador_principal_id == item.id %}disabled{% endif %}>
                     <option value="ADMIN" {% if item.perfil == 'ADMIN' %}selected{% endif %}>Administrador</option>
                     <option value="GERENTE" {% if item.perfil == 'GERENTE' %}selected{% endif %}>Gerente</option>
                     <option value="ATENDENTE" {% if item.perfil == 'ATENDENTE' %}selected{% endif %}>Operador</option>
                   </select>
+                  {% if administrador_principal_id == item.id %}
+                    <input type="hidden" name="perfil" value="{{ item.perfil }}">
+                  {% endif %}
               </td>
               <td>
                   <div class="form-check m-0">
-                    <input class="form-check-input" type="checkbox" name="ativo" value="on" {% if item.ativo %}checked{% endif %}>
+                    <input class="form-check-input" type="checkbox" name="ativo" value="on" {% if item.ativo %}checked{% endif %} {% if administrador_principal_id == item.id %}disabled{% endif %}>
+                    {% if administrador_principal_id == item.id %}
+                      <input type="hidden" name="ativo" value="on">
+                    {% endif %}
                     <label class="form-check-label">
                       {% if item.ativo %}
                         <span class="badge text-bg-success">Ativo</span>
@@ -56,12 +67,16 @@
               </td>
               <td class="text-end">
                   <div class="d-inline-flex gap-2">
-                    <button type="submit" class="btn btn-sm btn-outline-primary">Salvar</button>
+                    <button type="submit" class="btn btn-sm btn-outline-primary" {% if administrador_principal_id == item.id %}disabled{% endif %}>Salvar</button>
                 </form>
-                    <form method="post" action="{% url 'team_delete' item.id %}" onsubmit="return confirm('Deseja excluir este usuário da empresa?');">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
-                    </form>
+                    {% if administrador_principal_id == item.id %}
+                      <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Protegido</button>
+                    {% else %}
+                      <form method="post" action="{% url 'team_delete' item.id %}" onsubmit="return confirm('Deseja excluir este usuário da empresa?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                      </form>
+                    {% endif %}
                   </div>
               </td>
             </tr>
