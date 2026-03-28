@@ -51,6 +51,10 @@ def painel_admin(request):
     contas_abertas = ContaReceber.objects.exclude(status__in=['PAGA', 'CANCELADA']).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
     ordens_mes = OrdemServico.objects.filter(criado_em__year=hoje.year, criado_em__month=hoje.month).count()
 
+    solicitacoes = SolicitacaoPlano.objects.select_related(
+        'empresa', 'plano_atual', 'plano_solicitado', 'assinatura'
+    ).order_by('-criada_em')[:20]
+
     context = {
         'cards': {
             'empresas': empresas,
@@ -69,9 +73,7 @@ def painel_admin(request):
             total_produtos=Count('produtos', distinct=True),
         ).select_related('assinatura__plano').order_by('-criada_em')[:8],
         'planos': Plano.objects.annotate(total_clientes=Count('assinaturas')).order_by('ordem', 'preco_mensal'),
-        'solicitacoes': SolicitacaoPlano.objects.select_related(
-            'empresa', 'plano_atual', 'plano_solicitado', 'assinatura'
-        ).order_by('-criada_em')[:20],
+        'solicitacoes': solicitacoes,
         'usuarios_recentes': User.objects.order_by('-date_joined')[:8],
         'eventos_recentes': EventoAssinatura.objects.select_related('assinatura__empresa')[:8],
     }
@@ -244,7 +246,10 @@ def aprovar_solicitacao_plano_saas(request, pk):
     assinatura = solicitacao.assinatura
 
     if request.method == 'POST':
-        aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
+        # idempotente: se ainda não foi aplicada, aplica agora
+        if assinatura.plano_id != solicitacao.plano_solicitado_id:
+            aplicar_troca_plano(assinatura, solicitacao.plano_solicitado, renovar_ciclo=False)
+
         solicitacao.status = 'APLICADA'
         solicitacao.save(update_fields=['status', 'atualizado_em'])
         messages.success(
