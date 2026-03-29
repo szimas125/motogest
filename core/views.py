@@ -55,7 +55,7 @@ def _redirecionar_se_cancelada(request, empresa, destino='plans'):
     if empresa and assinatura_cancelada(empresa):
         messages.warning(
             request,
-            'Sua assinatura está cancelada. Para continuar, escolha um novo plano para reativar a empresa.'
+            'Sua assinatura está cancelada. Escolha um novo plano para reativar a empresa.'
         )
         return redirect(destino)
     return None
@@ -169,6 +169,7 @@ def planos_empresa(request):
     planos = Plano.objects.filter(ativo=True, exibir_no_site=True)
     solicitacoes = empresa.solicitacoes_plano.select_related('plano_solicitado')[:10]
     plano_atual = None if (assinatura and (assinatura.status or '').upper() == 'CANCELADA') else getattr(assinatura, 'plano', None)
+
     return render(
         request,
         'core/plans.html',
@@ -200,11 +201,27 @@ def trocar_plano(request, plano_id):
 
         if assinatura.status == 'CANCELADA':
             aplicar_troca_plano(assinatura, novo_plano, renovar_ciclo=False)
-            messages.success(request, f'Assinatura reativada com o plano {novo_plano.nome}.')
-            if settings.MERCADOPAGO_ENABLED and not assinatura.cartao_cadastrado_em:
-                messages.info(request, 'Agora cadastre um cartão para reativar a cobrança automática.')
-                return redirect('billing_checkout')
-            return redirect('billing_status')
+
+            # A assinatura antiga do Mercado Pago foi cancelada, então limpamos os dados
+            # para forçar a criação de uma nova assinatura quando o cartão for cadastrado novamente.
+            assinatura.mercado_pago_status = ''
+            assinatura.mercado_pago_preapproval_id = ''
+            assinatura.save(update_fields=['mercado_pago_status', 'mercado_pago_preapproval_id', 'atualizado_em'])
+
+            EventoAssinatura.objects.create(
+                assinatura=assinatura,
+                origem='cliente',
+                tipo='reativacao_assinatura',
+                descricao=f'Assinatura reativada com o plano {novo_plano.nome}.',
+                payload={'plano_id': novo_plano.id},
+            )
+
+            messages.success(request, f'Plano {novo_plano.nome} selecionado com sucesso.')
+            messages.info(
+                request,
+                'Para concluir a reativação da cobrança automática, cadastre novamente o cartão da assinatura.'
+            )
+            return redirect('billing_checkout')
 
         if novo_plano.preco_mensal >= assinatura.plano.preco_mensal:
             aplicar_troca_plano(assinatura, novo_plano)
@@ -489,10 +506,6 @@ def billing_checkout(request):
     if not empresa:
         return redirect('selecionar_empresa')
 
-    bloqueio = _redirecionar_se_cancelada(request, empresa, destino='billing_status')
-    if bloqueio:
-        return bloqueio
-
     assinatura = empresa.assinatura
     form = BillingCardTokenForm(request.POST or None)
 
@@ -567,11 +580,7 @@ def billing_checkout(request):
                     response,
                     origem='checkout',
                 )
-                messages.success(
-                    request,
-                    'Cartão cadastrado com sucesso. A primeira cobrança ficará agendada '
-                    'para depois do seu teste grátis.'
-                )
+                messages.success(request, 'Cobrança automática reativada com sucesso.')
                 return redirect('billing_status')
             except MercadoPagoConfigError as exc:
                 messages.error(request, str(exc))
